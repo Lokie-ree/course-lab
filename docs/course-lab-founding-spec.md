@@ -106,7 +106,7 @@ function createEmitter(sink: TelemetrySink, context: SessionContext): (partial: 
 | `round_enter` | Anchors time-before-commit. Emitted from M2/M3's existing round-entry CONTINUE gates and, for modules live at mount (M1, all course-lab), from the `studentCode`-prompt dismissal handler. Without it, round-1 time is unmeasurable everywhere and M2/M3 `next` timestamps intro-reading pauses, not round entry |
 | `check` + result | The committed bet and its outcome — the heart of PTR. In dilations ghost rounds the committed bet is the ghost **drop** (`COMMIT_PREDICTION`), not the CHECK-shaped button (which is REVEAL) — wire `check` to the drop |
 | `reset` | Struggle signal (four resets before a match is information) — meaningful only for mid-round resets (M1, M2). M3 has no reset action; course-lab resets are post-reveal "start over" — structurally zero there |
-| `reveal_earned` | The earned-reveal moment — first match on a beat, in **match-gated** modules. Commit-gated reveals (all course-lab per the no-wall principle; dilations rounds where REVEAL is offered after a miss) either emit at the reveal moment or are excluded from misses-before-reveal analysis — decide per module at wiring |
+| `reveal_earned` | The earned-reveal moment — first match on a beat, in **match-gated** modules. **Ruled 2026-07-09:** commit-gated reveals (all course-lab per the no-wall principle; dilations rounds where REVEAL is offered after a miss) emit at the reveal moment — when the student uses the unlocked reveal. Misses-before-reveal is computed for match-gated modules only; reveal timing (peeked before vs. after committing right) is captured everywhere |
 | `complete` | Module/capstone completion |
 | `next` | Progression pacing |
 
@@ -165,12 +165,12 @@ Tracked elsewhere; listed so they stop living in conversation memory only:
 ## 8. Review gates
 
 Before implementation:
-- [ ] Repo name decided
-- [ ] Event schema reviewed — any field missing that the SLT correlation will need? (Adding fields later to localStorage data is cheap; better now)
-- [ ] Suite grain ruled: `moduleId` and `MODULE_VERSION` at `<suite>/<internal-module>` grain, or explicit acceptance of suite-level-only (suite-level defeats the LEAP-join resolution §4.1 wants — the suites' internal modules are grouped by LEAP reporting category)
-- [ ] `studentCode` entry UX decided (prompt on mount vs. URL param vs. teacher-set) — include validation: free-typed codes mean a typo mints a phantom student (roster code list or checksum)
-- [ ] `useSessionReport` / `SessionExport` ruling made (§4.7): subsumed by the spine or parallel
-- [ ] Confirm CSV export shape against how Randall will actually do the LEAP join
+- [x] Repo name decided — **course-lab** (de facto 2026-07-09: founded as `Lokie-ree/course-lab`)
+- [x] Event schema reviewed — red-teamed against module code and revised 2026-07-09 (`round_enter`, `beatId`, per-module vocabulary mappings); no further fields identified for the SLT correlation
+- [x] Suite grain ruled (2026-07-09): **internal grain** — `moduleId` = `<suite>/<internal-module>`, `MODULE_VERSION` per internal module; `sessionId` stays per suite mount
+- [x] `studentCode` entry UX decided (2026-07-09): **prompt on mount**, once per session, validated against a roster code list (a typo must not mint a phantom student); the prompt's dismissal handler is the `round_enter` emit site for mount-live modules (M1, all course-lab)
+- [ ] `useSessionReport` / `SessionExport` ruling made (§4.7): subsumed by the spine or parallel — **the one gate still open**
+- [x] CSV export shape confirmed (2026-07-09): **flat event log**, one row per `LabEvent` (as `toCsv` ships); LEAP join happens offline via pivot; an aggregate export waits for the NOT-DOING trigger (a recurring manual analysis eating sessions)
 
 ---
 
