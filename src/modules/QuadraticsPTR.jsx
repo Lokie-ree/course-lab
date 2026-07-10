@@ -1,7 +1,13 @@
 import React, { useState, useMemo, useEffect, useRef, useContext, createContext } from "react";
+import { useTelemetry } from "../lib/TelemetryContext";
 
 // Bump on pedagogically meaningful change only (spec §4.6); roundIds are append-only.
 export const MODULE_VERSION = "1.0.0";
+
+// Fixed scenario id (spec §4.2) — the single bet this module runs.
+const ROUND_ID = "quad-x2-4x+5";
+// Read by the StartGate: round_enter fires from the studentCode dismissal (spec §8).
+export const TELEMETRY_ENTRY = { roundId: ROUND_ID, guideState: "predict" };
  
 /* ============================================================================
    PROTOTYPE — PREDICT → TEST → RECONCILE
@@ -271,14 +277,36 @@ function ModuleQuadraticsPTR() {
   const realCount = disc > 0 ? "two" : disc === 0 ? "one" : "zero"; // "zero"
   const predictionWasRight = pick === realCount;   // correct answer: "zero"
  
+  const { emit } = useTelemetry();
+
   const commit = () => {
     if (pick === "") return;
     if (isThinPrediction(prediction) && !nudged) { setNudged(true); return; }
     setCommitted(true);
     setPhase("revealed");
+    emit({ roundId: ROUND_ID, guideState: "predict", action: "check", result: predictionWasRight ? "match" : "miss" });
   };
  
+  const revealDiscriminant = () => {
+    setShowDisc(true);
+    emit({ roundId: ROUND_ID, guideState: "revealed", action: "reveal_earned" });
+  };
+
+  const startProducer = () => {
+    setPhase("producer");
+    emit({ roundId: ROUND_ID, guideState: "revealed", action: "next" });
+  };
+
+  const finishModule = (producerOk) => {
+    if (producerOk !== undefined) {
+      emit({ roundId: ROUND_ID, guideState: "producer", beatId: "producer", action: "check", result: producerOk ? "match" : "miss" });
+    }
+    emit({ roundId: ROUND_ID, guideState: "producer", action: "complete" });
+    setPhase("recap");
+  };
+
   const reset = () => {
+    emit({ roundId: ROUND_ID, guideState: phase, action: "reset" });
     setPhase("predict"); setPick(""); setPrediction(""); setNudged(false);
     setCommitted(false); setShowDisc(false); setSurprise("");
     setPa(""); setPb(""); setPc(""); setPCount(""); setPWhy(""); setStuck(false);
@@ -396,7 +424,7 @@ function ModuleQuadraticsPTR() {
             <div style={{ marginTop: 12 }}>
               <P style={{ margin: "0 0 8px" }}>The curve's lowest point sits just above the axis — but eyeballing a
                 graph isn't proof. The <b>discriminant</b> settles it. Compute b² − 4ac for a = 1, b = −4, c = 5.</P>
-              <Btn onClick={() => setShowDisc(true)}>Reveal the discriminant →</Btn>
+              <Btn onClick={revealDiscriminant}>Reveal the discriminant →</Btn>
             </div>
           )}
  
@@ -452,7 +480,7 @@ function ModuleQuadraticsPTR() {
             <>
               <Coach tone="neutral">Saved for your teacher in your own words — they'll read your reasoning, not a
                 score. Now run the discriminant test yourself on a fresh one.</Coach>
-              <Btn onClick={() => setPhase("producer")}>Test one yourself →</Btn>
+              <Btn onClick={startProducer}>Test one yourself →</Btn>
             </>
           ) : (
             <div style={{ fontSize: 13, color: C.sub, marginTop: 2 }}>
@@ -506,7 +534,7 @@ function ModuleQuadraticsPTR() {
                   ? `That matches — a discriminant of ${pDisc} is ${pDisc > 0 ? "positive, so two real solutions (crosses twice)" : pDisc === 0 ? "zero, so one real solution (touches once)" : "negative, so no real solutions (never touches)"}. You read the count straight off the sign.`
                   : `Saved — but recheck: a discriminant of ${pDisc} is ${pDisc > 0 ? "positive" : pDisc === 0 ? "zero" : "negative"}, which points to ${countWord(pTrueCount)}.`}
                   {" "}Your reasoning is in your own words and saved for your teacher.</Coach>
-                <Btn onClick={() => setPhase("recap")}>See what you built →</Btn>
+                <Btn onClick={() => finishModule(pCountOk)}>See what you built →</Btn>
               </>
             );
             return (
