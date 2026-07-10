@@ -125,7 +125,7 @@ function createEmitter(sink: TelemetrySink, context: SessionContext): (partial: 
 - `MODULE_VERSION` constant per file (12); the suite-internal grain (29 pedagogical units — the suites contain 11 + 8 internal modules) is decided at the §8 schema gate
 - `emit()` call sites: ~5 per creative-lab-style module, but ~95–145 across the fleet at internal-module grain — and every course-lab site needs a named handler created first
 - `studentCode` prompt at module entry (once per session)
-- Ruling on the suites' existing `useSessionReport` → `SessionExport` clipboard reporting layer: subsumed by the spine or run in parallel — decide before wiring, not implicitly
+- The suites' existing `useSessionReport` → `SessionExport` clipboard reporting layer runs **in parallel** with the spine (ruled 2026-07-09, see §8) — do not renovate it during wiring; subsume only on the §8 trigger
 
 **Two sessions, explicitly split.** Session 1 = migration (§5; `telemetry.ts` lands **unwired**). Session 2 = emit wiring + `studentCode` UX, gated on §8. If either grows past its session, something is being renovated that should only be moved — stop.
 
@@ -169,7 +169,7 @@ Before implementation:
 - [x] Event schema reviewed — red-teamed against module code and revised 2026-07-09 (`round_enter`, `beatId`, per-module vocabulary mappings); no further fields identified for the SLT correlation
 - [x] Suite grain ruled (2026-07-09): **internal grain** — `moduleId` = `<suite>/<internal-module>`, `MODULE_VERSION` per internal module; `sessionId` stays per suite mount
 - [x] `studentCode` entry UX decided (2026-07-09): **prompt on mount**, once per session, validated against a roster code list (a typo must not mint a phantom student); the prompt's dismissal handler is the `round_enter` emit site for mount-live modules (M1, all course-lab)
-- [ ] `useSessionReport` / `SessionExport` ruling made (§4.7): subsumed by the spine or parallel — **the one gate still open**
+- [x] `useSessionReport` / `SessionExport` ruled (2026-07-09): **parallel for now** — SessionExport serves a different consumer (clipboard teacher reports) than the spine's flat CSV (LEAP join), and subsuming would renovate working suite code during wiring. **Subsume trigger:** the first time the two layers report different numbers for the same session — divergent instruments are worse than duplicate ones
 - [x] CSV export shape confirmed (2026-07-09): **flat event log**, one row per `LabEvent` (as `toCsv` ships); LEAP join happens offline via pivot; an aggregate export waits for the NOT-DOING trigger (a recurring manual analysis eating sessions)
 
 ---
