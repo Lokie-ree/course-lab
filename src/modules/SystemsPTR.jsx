@@ -1,7 +1,13 @@
 import React, { useState, useMemo, useEffect, useRef, useContext, createContext } from "react";
+import { useTelemetry } from "../lib/TelemetryContext";
 
 // Bump on pedagogically meaningful change only (spec §4.6); roundIds are append-only.
 export const MODULE_VERSION = "1.0.0";
+
+// Fixed scenario id (spec §4.2) — the single bet this module runs.
+const ROUND_ID = "plans-30+10m-vs-15m";
+// Read by the StartGate: round_enter fires from the studentCode dismissal (spec §8).
+export const TELEMETRY_ENTRY = { roundId: ROUND_ID, guideState: "predict" };
  
 /* ============================================================================
    PROTOTYPE — PREDICT → TEST → RECONCILE
@@ -260,14 +266,31 @@ function ModuleSystemsPTR() {
   // Picking A-forever or B-forever is the misconception: one rate/start beats the other always.
   const predictionWasRight = pick === "depends";
  
+  const { emit } = useTelemetry();
+
   const commit = () => {
     if (pick === "") return;
     if (isThinPrediction(prediction) && !nudged) { setNudged(true); return; }
     setCommitted(true);
     setPhase("revealed");
+    emit({ roundId: ROUND_ID, guideState: "predict", action: "check", result: predictionWasRight ? "match" : "miss" });
   };
  
+  const startProducer = () => {
+    setPhase("producer");
+    emit({ roundId: ROUND_ID, guideState: "revealed", action: "next" });
+  };
+
+  const finishModule = (producerOk) => {
+    if (producerOk !== undefined) {
+      emit({ roundId: ROUND_ID, guideState: "producer", beatId: "producer", action: "check", result: producerOk ? "match" : "miss" });
+    }
+    emit({ roundId: ROUND_ID, guideState: "producer", action: "complete" });
+    setPhase("recap");
+  };
+
   const reset = () => {
+    emit({ roundId: ROUND_ID, guideState: phase, action: "reset" });
     setPhase("predict"); setPick(""); setPrediction(""); setNudged(false);
     setMonth(0); setCommitted(false); setSurprise("");
     setEqA(""); setEqB(""); setPx(""); setPy(""); setMeaning(""); setStuck(false);
@@ -426,7 +449,7 @@ function ModuleSystemsPTR() {
             <>
               <Coach tone="neutral">Saved for your teacher in your own words — they'll read your reasoning, not a
                 score. Now build one from scratch.</Coach>
-              <Btn onClick={() => setPhase("producer")}>Build one yourself →</Btn>
+              <Btn onClick={startProducer}>Build one yourself →</Btn>
             </>
           ) : (
             <div style={{ fontSize: 13, color: C.sub, marginTop: 2 }}>
@@ -480,7 +503,7 @@ function ModuleSystemsPTR() {
               <>
                 <Coach tone="good">Your point checks out — <b>(6, 90)</b>: at 6 months both plans cost $90. Saved for your teacher.
                   Your interpretation is in your own words; reread it — does it say which plan wins before month 6 and which after?</Coach>
-                <Btn onClick={() => setPhase("recap")}>See the argument you built →</Btn>
+                <Btn onClick={() => finishModule(correctPoint)}>See the argument you built →</Btn>
               </>
             ) : (
               <>

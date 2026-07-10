@@ -1,7 +1,13 @@
 import React, { useState, useMemo, useEffect, useRef, useContext, createContext } from "react";
+import { useTelemetry } from "../lib/TelemetryContext";
 
 // Bump on pedagogically meaningful change only (spec §4.6); roundIds are append-only.
 export const MODULE_VERSION = "1.0.0";
+
+// Fixed scenario id (spec §4.2) — the single bet this module runs.
+const ROUND_ID = "add50-vs-double";
+// Read by the StartGate: round_enter fires from the studentCode dismissal (spec §8).
+export const TELEMETRY_ENTRY = { roundId: ROUND_ID, guideState: "predict" };
  
 /* ============================================================================
    PROTOTYPE — PREDICT → TEST → RECONCILE
@@ -270,14 +276,36 @@ function ModuleLinearExpPTR() {
   const crossover = (() => { for (let t = 0; t <= BET_MONTH; t++) if (B(t) > A(t)) return t; return null; })(); // 4
   const predictionWasRight = pick === winner;
  
+  const { emit } = useTelemetry();
+
   const commit = () => {
     if (pick === "") return;
     if (isThinPrediction(prediction) && !nudged) { setNudged(true); return; }
     setCommitted(true);
     setPhase("revealed");
+    emit({ roundId: ROUND_ID, guideState: "predict", action: "check", result: predictionWasRight ? "match" : "miss" });
   };
  
+  const revealExtend = () => {
+    setShowExtend(true);
+    emit({ roundId: ROUND_ID, guideState: "revealed", action: "reveal_earned" });
+  };
+
+  const startProducer = () => {
+    setPhase("producer");
+    emit({ roundId: ROUND_ID, guideState: "revealed", action: "next" });
+  };
+
+  const finishModule = (producerOk) => {
+    if (producerOk !== undefined) {
+      emit({ roundId: ROUND_ID, guideState: "producer", beatId: "producer", action: "check", result: producerOk ? "match" : "miss" });
+    }
+    emit({ roundId: ROUND_ID, guideState: "producer", action: "complete" });
+    setPhase("recap");
+  };
+
   const reset = () => {
+    emit({ roundId: ROUND_ID, guideState: phase, action: "reset" });
     setPhase("predict"); setPick(""); setPrediction(""); setNudged(false);
     setCommitted(false); setShowExtend(false); setSurprise("");
     setPType(""); setPNext(""); setPWhy(""); setStuck(false);
@@ -448,7 +476,7 @@ function ModuleLinearExpPTR() {
                 <b style={{ color: C.indigo }}> Option A is ahead the entire way</b> ($250 vs $160 at month 3). If
                 you stopped here, you'd say A wins easily. But the bet was month <b>6</b>. Extend both rules and
                 watch.</P>
-              <Btn onClick={() => setShowExtend(true)}>Extend to month 6 →</Btn>
+              <Btn onClick={revealExtend}>Extend to month 6 →</Btn>
             </div>
           )}
  
@@ -505,7 +533,7 @@ function ModuleLinearExpPTR() {
             <>
               <Coach tone="neutral">Saved for your teacher in your own words — they'll read your reasoning, not a
                 score. Now construct a function yourself from a fresh set of pairs.</Coach>
-              <Btn onClick={() => setPhase("producer")}>Build one yourself →</Btn>
+              <Btn onClick={startProducer}>Build one yourself →</Btn>
             </>
           ) : (
             <div style={{ fontSize: 13, color: C.sub, marginTop: 2 }}>
@@ -574,7 +602,7 @@ function ModuleLinearExpPTR() {
                   ? `That's it — each value is 3× the one before (6 → 18 → 54), so it's exponential, and the next value is 54 × 3 = 162. You found the factor and built the rule from it.`
                   : `Saved — but recheck: each step multiplies by 3 (6 → 18 → 54), so it's exponential, and month ${PROD.nextT} is 54 × 3 = ${PROD.next}.`}
                   {" "}Your reasoning is in your own words and saved for your teacher.</Coach>
-                <Btn onClick={() => setPhase("recap")}>See what you built →</Btn>
+                <Btn onClick={() => finishModule(pBothOk)}>See what you built →</Btn>
               </>
             );
             return (

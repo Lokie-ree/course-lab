@@ -1,7 +1,13 @@
 import React, { useState, useMemo, useEffect, useRef, useContext, createContext } from "react";
+import { useTelemetry } from "../lib/TelemetryContext";
 
 // Bump on pedagogically meaningful change only (spec §4.6); roundIds are append-only.
 export const MODULE_VERSION = "1.0.0";
+
+// Fixed scenario id (spec §4.2) — the single bet this module runs.
+const ROUND_ID = "one-pair-not-enough";
+// Read by the StartGate: round_enter fires from the studentCode dismissal (spec §8).
+export const TELEMETRY_ENTRY = { roundId: ROUND_ID, guideState: "predict" };
  
 /* ============================================================================
    PROTOTYPE — PREDICT → TEST → RECONCILE
@@ -300,11 +306,14 @@ function ModuleCoordinatePTR() {
   const predictionWasRight = pick === "notEnough";
   const isTrapNow = touched && !isParallelogram(drag);
  
+  const { emit } = useTelemetry();
+
   const commit = () => {
     if (pick === "") return;
     if (isThinPrediction(prediction) && !nudged) { setNudged(true); return; }
     setCommitted(true);
     setPhase("revealed");
+    emit({ roundId: ROUND_ID, guideState: "predict", action: "check", result: predictionWasRight ? "match" : "miss" });
   };
  
   const onDrag = (v) => {
@@ -312,7 +321,21 @@ function ModuleCoordinatePTR() {
     if (v !== 0) setTouched(true);
   };
  
+  const startProducer = () => {
+    setPhase("producer");
+    emit({ roundId: ROUND_ID, guideState: "revealed", action: "next" });
+  };
+
+  const finishModule = (producerOk) => {
+    if (producerOk !== undefined) {
+      emit({ roundId: ROUND_ID, guideState: "producer", beatId: "producer", action: "check", result: producerOk ? "match" : "miss" });
+    }
+    emit({ roundId: ROUND_ID, guideState: "producer", action: "complete" });
+    setPhase("recap");
+  };
+
   const reset = () => {
+    emit({ roundId: ROUND_ID, guideState: phase, action: "reset" });
     setPhase("predict"); setPick(""); setPrediction(""); setNudged(false);
     setDrag(0); setTouched(false); setCommitted(false); setSurprise("");
     setSlopeOT(""); setSlopePS(""); setSlopeOP(""); setSlopeTS(""); setMeaning(""); setStuck(false);
@@ -502,7 +525,7 @@ function ModuleCoordinatePTR() {
             <>
               <Coach tone="neutral">Saved for your teacher in your own words — they'll read your reasoning, not a
                 score. Now prove it the way the test asks: with the slopes.</Coach>
-              <Btn onClick={() => setPhase("producer")}>Prove it with coordinates →</Btn>
+              <Btn onClick={startProducer}>Prove it with coordinates →</Btn>
             </>
           ) : (
             <div style={{ fontSize: 13, color: C.sub, marginTop: 2 }}>
@@ -571,7 +594,7 @@ function ModuleCoordinatePTR() {
                   parallel sides is the definition, so it's a parallelogram for <i>any</i> a, b, c — not just one
                   picture. Your "why" is in your own words; reread it and make sure it names both pairs. Saved for
                   your teacher.</Coach>
-                <Btn onClick={() => setPhase("recap")}>See the argument you built →</Btn>
+                <Btn onClick={() => finishModule(flatOk && leanOk)}>See the argument you built →</Btn>
               </>
             );
             return (

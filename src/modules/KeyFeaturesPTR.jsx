@@ -1,7 +1,13 @@
 import React, { useState, useMemo, useEffect, useRef, useContext, createContext } from "react";
+import { useTelemetry } from "../lib/TelemetryContext";
 
 // Bump on pedagogically meaningful change only (spec §4.6); roundIds are append-only.
 export const MODULE_VERSION = "1.0.0";
+
+// Fixed scenario id (spec §4.2) — the single bet this module runs.
+const ROUND_ID = "increasing-on-1-2";
+// Read by the StartGate: round_enter fires from the studentCode dismissal (spec §8).
+export const TELEMETRY_ENTRY = { roundId: ROUND_ID, guideState: "predict" };
  
 /* ============================================================================
    PROTOTYPE — PREDICT → TEST → RECONCILE
@@ -296,14 +302,39 @@ function ModuleKeyFeaturesPTR() {
     : k === "down" ? "going down (decreasing)" : "flat (not changing)";
   const pickLabel = dirWord(pick);
  
+  const { emit } = useTelemetry();
+
   const commit = () => {
     if (pick === "") return;
     if (isThinPrediction(prediction) && !nudged) { setNudged(true); return; }
     setCommitted(true);
     setPhase("revealed");
+    emit({ roundId: ROUND_ID, guideState: "predict", action: "check", result: predictionWasRight ? "match" : "miss" });
   };
  
+  const startProducer = () => {
+    setPhase("producer");
+    emit({ roundId: ROUND_ID, guideState: "revealed", action: "next" });
+  };
+
+  // The sketch-match has its own check button — that click is the committed
+  // bet for the producer beat, so `check` fires there, not at finish.
+  const checkMatch = () => {
+    if (!matchPick) return;
+    setMatchChecked(true);
+    emit({ roundId: ROUND_ID, guideState: "producer", beatId: "producer", action: "check", result: matchIsRight ? "match" : "miss" });
+  };
+
+  const finishModule = (producerOk) => {
+    if (producerOk !== undefined) {
+      emit({ roundId: ROUND_ID, guideState: "producer", beatId: "producer", action: "check", result: producerOk ? "match" : "miss" });
+    }
+    emit({ roundId: ROUND_ID, guideState: "producer", action: "complete" });
+    setPhase("recap");
+  };
+
   const reset = () => {
+    emit({ roundId: ROUND_ID, guideState: phase, action: "reset" });
     setPhase("predict"); setPick(""); setPrediction(""); setNudged(false);
     setCommitted(false); setSurprise("");
     setMatchPick(""); setMatchChecked(false); setMatchWhy(""); setStuck(false);
@@ -476,7 +507,7 @@ function ModuleKeyFeaturesPTR() {
             <>
               <Coach tone="neutral">Saved for your teacher in your own words — they'll read your reasoning, not a
                 score. Now use the distinction to pick the right graph.</Coach>
-              <Btn onClick={() => setPhase("producer")}>Match the description to a graph →</Btn>
+              <Btn onClick={startProducer}>Match the description to a graph →</Btn>
             </>
           ) : (
             <div style={{ fontSize: 13, color: C.sub, marginTop: 2 }}>
@@ -507,7 +538,7 @@ function ModuleKeyFeaturesPTR() {
           </div>
  
           {!matchChecked && (
-            <Btn onClick={() => matchPick && setMatchChecked(true)} disabled={!matchPick}>
+            <Btn onClick={checkMatch} disabled={!matchPick}>
               Check my match →
             </Btn>
           )}
@@ -537,7 +568,7 @@ function ModuleKeyFeaturesPTR() {
                   <>
                     <Coach tone="neutral">Saved in your own words for your teacher. You separated direction from sign
                       and used both as a filter — that's the whole skill.</Coach>
-                    <Btn onClick={() => setPhase("recap")}>See what you built →</Btn>
+                    <Btn onClick={() => finishModule()}>See what you built →</Btn>
                   </>
                 );
                 return (

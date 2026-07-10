@@ -1,7 +1,13 @@
 import React, { useState, useMemo, useEffect, useRef, useContext, createContext } from "react";
+import { useTelemetry } from "../lib/TelemetryContext";
 
 // Bump on pedagogically meaningful change only (spec §4.6); roundIds are append-only.
 export const MODULE_VERSION = "1.0.0";
+
+// Fixed scenario id (spec §4.2) — the single bet this module runs.
+const ROUND_ID = "min-x2-6x+8";
+// Read by the StartGate: round_enter fires from the studentCode dismissal (spec §8).
+export const TELEMETRY_ENTRY = { roundId: ROUND_ID, guideState: "predict" };
  
 /* ============================================================================
    PROTOTYPE — PREDICT → TEST → RECONCILE
@@ -284,14 +290,36 @@ function ModuleEquivFormsPTR() {
   const realMin = "negone";                  // correct choice key
   const predictionWasRight = pick === realMin;
  
+  const { emit } = useTelemetry();
+
   const commit = () => {
     if (pick === "") return;
     if (isThinPrediction(prediction) && !nudged) { setNudged(true); return; }
     setCommitted(true);
     setPhase("revealed");
+    emit({ roundId: ROUND_ID, guideState: "predict", action: "check", result: predictionWasRight ? "match" : "miss" });
   };
  
+  const revealSquare = () => {
+    setShowSquare(true);
+    emit({ roundId: ROUND_ID, guideState: "revealed", action: "reveal_earned" });
+  };
+
+  const startProducer = () => {
+    setPhase("producer");
+    emit({ roundId: ROUND_ID, guideState: "revealed", action: "next" });
+  };
+
+  const finishModule = (producerOk) => {
+    if (producerOk !== undefined) {
+      emit({ roundId: ROUND_ID, guideState: "producer", beatId: "producer", action: "check", result: producerOk ? "match" : "miss" });
+    }
+    emit({ roundId: ROUND_ID, guideState: "producer", action: "complete" });
+    setPhase("recap");
+  };
+
   const reset = () => {
+    emit({ roundId: ROUND_ID, guideState: phase, action: "reset" });
     setPhase("predict"); setPick(""); setPrediction(""); setNudged(false);
     setCommitted(false); setShowSquare(false); setSurprise("");
     setPickQ(""); setZ1(""); setZ2(""); setPWhy(""); setStuck(false);
@@ -414,7 +442,7 @@ function ModuleEquivFormsPTR() {
               <P style={{ margin: "0 0 8px" }}>The curve clearly bottoms out <b>below</b> the axis — so the minimum
                 isn't 8, and it isn't 0. But where exactly, and why? The standard form <b>x² − 6x + 8</b> hides it.
                 Rewrite it in an equivalent form that <b>shows</b> the minimum: complete the square.</P>
-              <Btn onClick={() => setShowSquare(true)}>Complete the square →</Btn>
+              <Btn onClick={revealSquare}>Complete the square →</Btn>
             </div>
           )}
  
@@ -472,7 +500,7 @@ function ModuleEquivFormsPTR() {
             <>
               <Coach tone="neutral">Saved for your teacher in your own words — they'll read your reasoning, not a
                 score. Now produce an equivalent form yourself — this time, factor one to reveal its zeros.</Coach>
-              <Btn onClick={() => setPhase("producer")}>Reveal some zeros →</Btn>
+              <Btn onClick={startProducer}>Reveal some zeros →</Btn>
             </>
           ) : (
             <div style={{ fontSize: 13, color: C.sub, marginTop: 2 }}>
@@ -542,7 +570,7 @@ function ModuleEquivFormsPTR() {
                       ? `That's it — ${chosenQ.std} factors as ${chosenQ.factored}, so it's zero exactly when x = ${chosenQ.r1} or x = ${chosenQ.r2}. You read both zeros straight off the factors, no formula needed.`
                       : `Saved — but recheck against the factors: ${chosenQ.std} = ${chosenQ.factored}, which is zero when x = ${chosenQ.r1} and x = ${chosenQ.r2}.`}
                       {" "}Your reasoning is in your own words and saved for your teacher.</Coach>
-                    <Btn onClick={() => setPhase("recap")}>See what you built →</Btn>
+                    <Btn onClick={() => finishModule(zerosOk)}>See what you built →</Btn>
                   </>
                 );
                 return (
