@@ -1,7 +1,18 @@
 import React, { useState, useMemo, useEffect, useRef, useContext, createContext } from "react";
+import { useTelemetry } from "../lib/TelemetryContext";
 
 // Bump on pedagogically meaningful change only (spec §4.6); roundIds are append-only.
 export const MODULE_VERSION = "1.0.0";
+
+// Fixed per-stage scenario ids (spec §4.2) — bind/defend/produce are this
+// module's rounds; ids are append-only (spec §4.6).
+const ROUNDS = {
+  bind: "bind-p1rn",
+  defend: "defend-p-plus-prn",
+  produce: "produce-depreciation",
+};
+// Read by the StartGate: round_enter fires from the studentCode dismissal (spec §8).
+export const TELEMETRY_ENTRY = { roundId: ROUNDS.bind, guideState: "bind" };
  
 /* ============================================================================
    PROTOTYPE — BIND → DEFEND → PRODUCE   (the binding family, NOT the spine)
@@ -245,6 +256,7 @@ function BindStage({ onComplete }) {
   const [selToken, setSelToken] = useState(null);
   const [contra, setContra] = useState(null);   // { tokenId, meaningId }
   const allDone = TOKENS.every((t) => bound[t.id] === t.correct);
+  const { emit } = useTelemetry();
  
   // meanings already claimed by a correct bind are used up
   const usedMeanings = Object.values(bound);
@@ -256,9 +268,11 @@ function BindStage({ onComplete }) {
       setBound((b) => ({ ...b, [tok.id]: meaningId }));
       setContra(null);
       setSelToken(null);
+      emit({ roundId: ROUNDS.bind, guideState: "bind", beatId: tok.id, action: "check", result: "match" });
     } else {
       setContra({ tokenId: tok.id, meaningId });
       // do NOT lock — the bind is rejected by the scenario, student re-tries
+      emit({ roundId: ROUNDS.bind, guideState: "bind", beatId: tok.id, action: "check", result: "miss" });
     }
   };
  
@@ -362,6 +376,13 @@ function BindStage({ onComplete }) {
 function DefendStage({ onComplete }) {
   const [where, setWhere] = useState("");
   const [done, setDone] = useState(false);
+  const { emit } = useTelemetry();
+
+  // Unjudged committed bet — saved for the teacher, so `check` carries no result.
+  const lockDefend = () => {
+    setDone(true);
+    emit({ roundId: ROUNDS.defend, guideState: "defend", action: "check" });
+  };
   useSessionReport("Round 1 — Defending against P + Prn", [where ? `Where the linear reading breaks (student's words): ${where}` : ""]);
   return (
     <section style={{ marginTop: 32, paddingTop: 22, borderTop: `1px solid ${C.line}` }}>
@@ -387,7 +408,7 @@ function DefendStage({ onComplete }) {
       <Field label="Where does the rewrite break, and why? (use what the parts mean)" value={where} onChange={setWhere}
         placeholder="They read the 4% as a flat $20 added each year, but it actually… so after a few years their total is ___ than the real one because…" rows={3} />
  
-      {!done && <Btn onClick={() => setDone(true)} disabled={isFiller(where)}>{isFiller(where) ? "Say where it breaks" : "Lock it in"}</Btn>}
+      {!done && <Btn onClick={lockDefend} disabled={isFiller(where)}>{isFiller(where) ? "Say where it breaks" : "Lock it in"}</Btn>}
       {done && (
         <>
           <Coach tone="good">
@@ -412,6 +433,12 @@ function ProduceStage({ onComplete }) {
   const [done, setDone] = useState(false);
   const fNorm = factor.replace(/\s/g, "");
   const factorOK = ["0.85", ".85", "(1-0.15)", "(1-.15)", "1-0.15", "1-.15"].includes(fNorm);
+  const { emit } = useTelemetry();
+
+  const commitProduce = () => {
+    setDone(true);
+    emit({ roundId: ROUNDS.produce, guideState: "produce", action: "check", result: factorOK ? "match" : "miss" });
+  };
   useSessionReport("Round 2 — Depreciation (r negative)", [
     factor ? `Factor given: ${factor}` : "",
     why ? `What 0.85 means / why below 1 (student's words): ${why}` : "",
@@ -438,13 +465,13 @@ function ProduceStage({ onComplete }) {
         if (done) return null;
         const good = factorOK && !isFiller(why);
         return good
-          ? <Btn onClick={() => setDone(true)}>See what you built →</Btn>
+          ? <Btn onClick={commitProduce}>See what you built →</Btn>
           : (
             <>
               <Coach tone="redirect">{!factorOK
                 ? "Losing 15% means keeping 85% — so the factor is 1 − 0.15 = 0.85. It multiplies the value down each year."
                 : "Put the reason in words — why does keeping 85% each year make the factor sit below 1?"}</Coach>
-              <Btn kind="ghost" onClick={() => setDone(true)}>I'll move on</Btn>
+              <Btn kind="ghost" onClick={commitProduce}>I'll move on</Btn>
             </>
           );
       })()}
@@ -464,6 +491,21 @@ function ProduceStage({ onComplete }) {
    --------------------------------------------------------------------------- */
 export default function BindDefendProduce() {
   const [phase, setPhase] = useState(1);
+  const { emit } = useTelemetry();
+
+  // Stage-complete buttons are this module's round-entry CONTINUE gates (spec §4.5).
+  const toDefend = () => {
+    setPhase(2);
+    emit({ roundId: ROUNDS.defend, guideState: "defend", action: "round_enter" });
+  };
+  const toProduce = () => {
+    setPhase(3);
+    emit({ roundId: ROUNDS.produce, guideState: "produce", action: "round_enter" });
+  };
+  const finish = () => {
+    setPhase(4);
+    emit({ roundId: ROUNDS.produce, guideState: "produce", action: "complete" });
+  };
   const recordsRef = useRef({});
   const [, force] = useState(0);
   const ctx = useMemo(() => ({ record: (title, body) => { recordsRef.current[title] = body; force((n) => n + 1); } }), []);
@@ -484,9 +526,9 @@ export default function BindDefendProduce() {
             Bind → Defend → Produce — read structure, no graph
           </div>
  
-          {phase >= 1 && <BindStage onComplete={() => setPhase(2)} />}
-          {phase >= 2 && <DefendStage onComplete={() => setPhase(3)} />}
-          {phase >= 3 && <ProduceStage onComplete={() => setPhase(4)} />}
+          {phase >= 1 && <BindStage onComplete={toDefend} />}
+          {phase >= 2 && <DefendStage onComplete={toProduce} />}
+          {phase >= 3 && <ProduceStage onComplete={finish} />}
  
           {phase === 4 && (
             <div style={{ marginTop: 34, paddingTop: 22, borderTop: `2px solid ${C.ink}` }}>
