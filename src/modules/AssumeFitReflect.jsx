@@ -1,7 +1,17 @@
 import React, { useState, useMemo, useEffect, useRef, useContext, createContext } from "react";
+import { useTelemetry } from "../lib/TelemetryContext";
 
 // Bump on pedagogically meaningful change only (spec §4.6); roundIds are append-only.
 export const MODULE_VERSION = "1.0.0";
+
+// Fixed per-round scenario ids (spec §4.2) — fit+interpret share the
+// study-hours data; the micro-model is its own round. Append-only (spec §4.6).
+const ROUNDS = {
+  study: "study-hours",
+  battery: "battery-drain",
+};
+// Read by the StartGate: round_enter fires from the studentCode dismissal (spec §8).
+export const TELEMETRY_ENTRY = { roundId: ROUNDS.study, guideState: "assume" };
  
 /* ============================================================================
    PROTOTYPE — ASSUME → FIT → REFLECT   (the fitting family, NOT the spine)
@@ -376,6 +386,7 @@ function StageFitOutlier({ onLineLocked }) {
   const [line, setLine] = useState(R1.initLine);
   const [setAside, setSetAside] = useState({});
   const [locked, setLocked] = useState(false);
+  const { emit } = useTelemetry();
  
   const onHandle = (which, dx, dy) => {
     setLine((L) => which === "a" ? { ...L, x1: dx, y1: dy } : { ...L, x2: dx, y2: dy });
@@ -408,7 +419,13 @@ function StageFitOutlier({ onLineLocked }) {
         rows={3} disabled={committed} />
  
       {!committed && (
-        <Btn onClick={() => setCommitted(true)} disabled={isFiller(assumption)}>
+        <Btn
+          onClick={() => {
+            setCommitted(true);
+            // Unjudged committed call ("no wrong choice, only an unowned one") — check with no result.
+            emit({ roundId: ROUNDS.study, guideState: "assume", beatId: "assume", action: "check" });
+          }}
+          disabled={isFiller(assumption)}>
           {isFiller(assumption) ? "Say your call first" : "Lock my call → fit the line"}
         </Btn>
       )}
@@ -452,7 +469,11 @@ function StageFitOutlier({ onLineLocked }) {
           </div>
  
           {!locked && (
-            <Btn onClick={() => { setLocked(true); onLineLocked && onLineLocked({ m, b, resid, asideCount }); }}>
+            <Btn onClick={() => {
+              setLocked(true);
+              emit({ roundId: ROUNDS.study, guideState: "fit", beatId: "fit", action: "check" });
+              onLineLocked && onLineLocked({ m, b, resid, asideCount });
+            }}>
               This is my line → interpret it
             </Btn>
           )}
@@ -520,6 +541,17 @@ function StageInterpret({ fit, onDone }) {
   const slopeOK = slope && SLOPE_OPTIONS.find((o) => o.id === slope).correct;
   const interOK = inter && INT_OPTIONS.find((o) => o.id === inter).correct;
   const both = slopeOK && interOK;
+  const { emit } = useTelemetry();
+
+  // Each pick self-adjudicates (correct / contradiction) — one check per attempt.
+  const pickSlope = (id) => {
+    setSlope(id);
+    emit({ roundId: ROUNDS.study, guideState: "interpret", beatId: "slope", action: "check", result: SLOPE_OPTIONS.find((o) => o.id === id).correct ? "match" : "miss" });
+  };
+  const pickInter = (id) => {
+    setInter(id);
+    emit({ roundId: ROUNDS.study, guideState: "interpret", beatId: "intercept", action: "check", result: INT_OPTIONS.find((o) => o.id === id).correct ? "match" : "miss" });
+  };
  
   useSessionReport("Round 1 — Reading the line (slope & intercept)", [
     fit ? `Line read: ${fit.m.toFixed(1)} points per hour, starting near ${fit.b.toFixed(0)} at zero hours.` : "",
@@ -537,14 +569,14 @@ function StageInterpret({ fit, onDone }) {
  
       <BindRow prompt="The slope of your line —"
         value={`${fit ? fit.m.toFixed(1) : "≈ 6"} points per hour`}
-        options={SLOPE_OPTIONS} picked={slope} onPick={setSlope}
+        options={SLOPE_OPTIONS} picked={slope} onPick={pickSlope}
         contradiction={slope === "total"
           ? "If the slope were the total score, every student would get the same total no matter how long they studied — but the whole point is the score climbs as hours go up. A slope is a rate of change, not a total."
           : "If the slope were the no-study score, it would be a single starting point — but a slope describes how steeply the line rises, the change per hour. That starting point is the intercept, not the slope."} />
  
       <BindRow prompt="The intercept of your line —"
         value={`≈ ${fit ? fit.b.toFixed(0) : "52"} at 0 hours`}
-        options={INT_OPTIONS} picked={inter} onPick={setInter}
+        options={INT_OPTIONS} picked={inter} onPick={pickInter}
         contradiction={inter === "rate"
           ? "That's the slope's job — the per-hour climb. The intercept is frozen at zero hours; it doesn't describe motion, it describes the starting height."
           : "The intercept isn't the top of the data — it's where the line crosses zero hours, which here is near the bottom. The highest score is just one point, not the intercept."} />
@@ -574,6 +606,7 @@ function StageMicroModel({ onDone }) {
   const [line, setLine] = useState(R3.initLine);
   const [reflect, setReflect] = useState("");
   const [done, setDone] = useState(false);
+  const { emit } = useTelemetry();
  
   const onHandle = (which, dx, dy) => {
     setLine((L) => which === "a" ? { ...L, x1: dx, y1: dy } : { ...L, x2: dx, y2: dy });
@@ -604,7 +637,12 @@ function StageMicroModel({ onDone }) {
         placeholder="e.g. I think it drops in a straight line… or maybe it falls faster near the end?"
         rows={2} disabled={committed} />
       {!committed && (
-        <Btn onClick={() => setCommitted(true)} disabled={isFiller(assumption)}>
+        <Btn
+          onClick={() => {
+            setCommitted(true);
+            emit({ roundId: ROUNDS.battery, guideState: "assume", beatId: "assume", action: "check" });
+          }}
+          disabled={isFiller(assumption)}>
           {isFiller(assumption) ? "Commit a read first" : "Lock it → try to fit"}
         </Btn>
       )}
@@ -644,7 +682,12 @@ function StageMicroModel({ onDone }) {
             rows={3} />
  
           {!done && (
-            <Btn onClick={() => setDone(true)} disabled={isFiller(reflect)}>
+            <Btn
+              onClick={() => {
+                setDone(true);
+                emit({ roundId: ROUNDS.battery, guideState: "reflect", beatId: "reflect", action: "check" });
+              }}
+              disabled={isFiller(reflect)}>
               {isFiller(reflect) ? "Reflect first" : "Finish → see what you built"}
             </Btn>
           )}
@@ -667,6 +710,17 @@ export default function AssumeFitReflect() {
   const [phase, setPhase] = useState(1); // 1 fit+interpret, 2 micro-model, 3 recap
   const [fit, setFit] = useState(null);
   const [interpretOpen, setInterpretOpen] = useState(false);
+  const { emit } = useTelemetry();
+
+  // Round-entry CONTINUE gate and completion (spec §4.5).
+  const toBattery = () => {
+    setPhase(2);
+    emit({ roundId: ROUNDS.battery, guideState: "assume", action: "round_enter" });
+  };
+  const finish = () => {
+    setPhase(3);
+    emit({ roundId: ROUNDS.battery, guideState: "reflect", action: "complete" });
+  };
   const recordsRef = useRef({});
   const [, force] = useState(0);
  
@@ -702,10 +756,10 @@ export default function AssumeFitReflect() {
             <StageFitOutlier onLineLocked={(f) => { setFit(f); setInterpretOpen(true); }} />
           )}
           {interpretOpen && phase === 1 && (
-            <StageInterpret fit={fit} onDone={() => setPhase(2)} />
+            <StageInterpret fit={fit} onDone={toBattery} />
           )}
           {phase >= 2 && (
-            <StageMicroModel onDone={() => setPhase(3)} />
+            <StageMicroModel onDone={finish} />
           )}
  
           {phase === 3 && (
