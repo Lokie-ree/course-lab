@@ -1,4 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useContext, createContext } from "react";
+
+// Bump on pedagogically meaningful change only (spec §4.6); roundIds are append-only.
+export const MODULE_VERSION = "1.0.0";
  
 /* ============================================================================
    PROTOTYPE — BIND → DEFEND → PRODUCE   (the binding family, NOT the spine)
