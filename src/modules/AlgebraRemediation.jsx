@@ -1,7 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef, useContext, createContext } from "react";
+import { useTelemetry } from "../lib/TelemetryContext";
 
 // Bump on pedagogically meaningful change only (spec §4.6); roundIds are append-only.
+// This is the suite shell's version; each internal module carries its own
+// `version` in the MODULES registry below (§8 suite-grain ruling).
 export const MODULE_VERSION = "1.0.0";
+
+const SUITE = "algebra-remediation";
  
 /* Session store: each module reports its copy-lines here; the app-level
    "Copy my whole session" button reads the union across all modules. */
@@ -236,7 +241,7 @@ function CopyResults({ lines }) {
 /* ============================================================================
    MODULE 1 — INTERPRETING FUNCTIONS
    ============================================================================ */
-function ModuleFunctions() {
+function ModuleFunctions({ emit = () => {} }) {
   const [stage, setStage] = useState("judge");
   // judge
   const [week, setWeek] = useState(0);
@@ -251,9 +256,21 @@ function ModuleFunctions() {
   const [ready, setReady] = useState("");
   const [stuck, setStuck] = useState(false);
  
-  const reset = () => { setStage("judge"); setWeek(0); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false);
+  const reset = () => { emit({ guideState: stage, action: "reset" });
+    setStage("judge"); setWeek(0); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false);
     setSlope(""); setIntc(""); setMean3(""); setMean8(""); setReady(""); };
-  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; } setSubmitted(true); };
+  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; }
+    setSubmitted(true);
+    emit({ guideState: "judge", action: "check", result: caughtCrossing ? "match" : "miss" }); };
+  const startProducer = () => {
+    setStage("producer");
+    emit({ guideState: "judge", action: "next" });
+  };
+  const finishModule = (producerOk) => {
+    emit({ guideState: "producer", beatId: "producer", action: "check", result: producerOk ? "match" : "miss" });
+    emit({ guideState: "producer", action: "complete" });
+    setStage("recap");
+  };
  
   // Jordan: starts 22, +1/wk. Riley: starts 12, +4/wk. Cross ~ week 3.33.
   const jordan = (w) => 22 + 1 * w;
@@ -312,7 +329,7 @@ function ModuleFunctions() {
           <Coach tone="good">That's the read. Riley starts behind, but a bigger weekly rate means the lines
             cross — around week 4 Riley pulls ahead and stays there. You read the <b>rate</b>, not just the
             starting point. That's exactly the move the test is checking.</Coach>
-          <Btn onClick={() => setStage("producer")}>Now build one yourself →</Btn>
+          <Btn onClick={startProducer}>Now build one yourself →</Btn>
         </>
       ) : (
         <>
@@ -320,7 +337,7 @@ function ModuleFunctions() {
             higher at week 6. The starting point and the growth rate aren't the same thing. Riley's steeper rate
             lets the line catch up and cross. Read what the slope is doing over time.</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={() => setStage("producer")}>Got it — build one yourself →</Btn>
+            <Btn onClick={startProducer}>Got it — build one yourself →</Btn>
             <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
           </div>
         </>
@@ -372,7 +389,7 @@ function ModuleFunctions() {
               <>
                 <Coach tone="good">Your function checks out — f(w) = 3w + 8, slope 3 and starting value 8. Saved for your teacher.
                   The meaning of each part and the ready week are in your words; reread them and make sure each says what the number stands for.</Coach>
-                <Btn onClick={() => setStage("recap")}>See the argument you built →</Btn>
+                <Btn onClick={() => finishModule(sOk && iOk)}>See the argument you built →</Btn>
               </>
             );
             return (
@@ -416,7 +433,7 @@ function ModuleFunctions() {
 /* ============================================================================
    MODULE 2 — SYSTEMS OF EQUATIONS
    ============================================================================ */
-function ModuleSystems() {
+function ModuleSystems({ emit = () => {} }) {
   const [stage, setStage] = useState("judge");
   const [verdict, setVerdict] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -429,9 +446,21 @@ function ModuleSystems() {
   const [meaning, setMeaning] = useState("");
   const [stuck, setStuck] = useState(false);
  
-  const reset = () => { setStage("judge"); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false);
+  const reset = () => { emit({ guideState: stage, action: "reset" });
+    setStage("judge"); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false);
     setEqA(""); setEqB(""); setPx(""); setPy(""); setMeaning(""); };
-  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; } setSubmitted(true); };
+  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; }
+    setSubmitted(true);
+    emit({ guideState: "judge", action: "check", result: caughtPoint ? "match" : "miss" }); };
+  const startProducer = () => {
+    setStage("producer");
+    emit({ guideState: "judge", action: "next" });
+  };
+  const finishModule = (producerOk) => {
+    emit({ guideState: "producer", beatId: "producer", action: "check", result: producerOk ? "match" : "miss" });
+    emit({ guideState: "producer", action: "complete" });
+    setStage("recap");
+  };
  
   // judge system: y = 3x - 1 and y = x + 3 -> (2, 5)
   const caughtPoint = /point|both|coordinate|\(2|y\s*=|y-?value|x\s*and\s*y|5|two number|ordered/i.test(verdict);
@@ -494,7 +523,7 @@ x = 2
           <Coach tone="good">Exactly. The solution to a system is the <b>point</b> where the lines meet — it needs
             both coordinates, <b>(2, 5)</b>. Stopping at <code>x = 2</code> is half the answer. On the test, naming
             the full point is the difference between credit and partial credit.</Coach>
-          <Btn onClick={() => setStage("producer")}>Now build one yourself →</Btn>
+          <Btn onClick={startProducer}>Now build one yourself →</Btn>
         </>
       ) : (
         <>
@@ -502,7 +531,7 @@ x = 2
             cross. The solution isn't just <code>x = 2</code>; it's the <b>point</b> the two lines share, which has a
             y-value too. What's the full ordered pair?</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={() => setStage("producer")}>Got it — build one yourself →</Btn>
+            <Btn onClick={startProducer}>Got it — build one yourself →</Btn>
             <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
           </div>
         </>
@@ -551,7 +580,7 @@ x = 2
               <>
                 <Coach tone="good">Your point checks out — <b>(6, 90)</b>: at 6 months both plans cost $90. Saved for your teacher.
                   Your interpretation is in your own words; reread it — does it say which plan wins before month 6 and which after?</Coach>
-                <Btn onClick={() => setStage("recap")}>See the argument you built →</Btn>
+                <Btn onClick={() => finishModule(correctPoint)}>See the argument you built →</Btn>
               </>
             ) : (
               <>
@@ -603,7 +632,7 @@ x = 2
      recap: { rows:(state)=>[{label,text}], copy:(state)=>[strings] }
    }
    ============================================================================ */
-function FullModule({ config }) {
+function FullModule({ config, emit = () => {} }) {
   const [stage, setStage] = useState("judge");
   const [verdict, setVerdict] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -611,7 +640,8 @@ function FullModule({ config }) {
   const [stuck, setStuck] = useState(false);
   const [vals, setVals] = useState({});
   const setVal = (k, v) => setVals((s) => ({ ...s, [k]: v }));
-  const reset = () => { setStage("judge"); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false); setVals({}); };
+  const reset = () => { emit({ guideState: stage, action: "reset" });
+    setStage("judge"); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false); setVals({}); };
   const caught = config.judge.caught.test(verdict);
   const ready = config.producer.ready({ ...vals, verdict });
   // #1 objective validation: check() returns {ok, hint}. No check() → filler floor on all fields.
@@ -628,6 +658,16 @@ function FullModule({ config }) {
   const submitVerdict = () => {
     if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; }
     setSubmitted(true);
+    emit({ guideState: "judge", action: "check", result: caught ? "match" : "miss" });
+  };
+  const startProducer = () => {
+    setStage("producer");
+    emit({ guideState: "judge", action: "next" });
+  };
+  const finishModule = () => {
+    emit({ guideState: "producer", beatId: "producer", action: "check", result: checkResult.ok ? "match" : "miss" });
+    emit({ guideState: "producer", action: "complete" });
+    setStage("recap");
   };
  
   // #1 session report
@@ -651,13 +691,13 @@ function FullModule({ config }) {
       ) : caught ? (
         <>
           <Coach tone="good">{config.judge.goodCoach}</Coach>
-          <Btn onClick={() => setStage("producer")}>Now build one yourself →</Btn>
+          <Btn onClick={startProducer}>Now build one yourself →</Btn>
         </>
       ) : (
         <>
           <Coach tone="redirect">{config.judge.redirectCoach}</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={() => setStage("producer")}>Got it — build one yourself →</Btn>
+            <Btn onClick={startProducer}>Got it — build one yourself →</Btn>
             <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
           </div>
         </>
@@ -681,7 +721,7 @@ function FullModule({ config }) {
           {passable && (
             <>
               <Coach tone="good">{config.producer.goodCoach}</Coach>
-              <Btn onClick={() => setStage("recap")}>See the argument you built →</Btn>
+              <Btn onClick={finishModule}>See the argument you built →</Btn>
             </>
           )}
         </div>
@@ -703,8 +743,8 @@ function FullModule({ config }) {
 }
  
 /* ---- Module 3 — Seeing Structure in Expressions (A-SSE) — no graph -------- */
-function ModuleExpressions() {
-  return <FullModule config={{
+function ModuleExpressions({ emit }) {
+  return <FullModule emit={emit} config={{
     tag: "Module 3 · Seeing Structure in Expressions",
     judge: {
       prompt: (<>
@@ -758,8 +798,8 @@ function ModuleExpressions() {
 }
  
 /* ---- Module 4 — Solving → Modeling (A-REI.B / A-CED) — the micro-model ---- */
-function ModuleModeling() {
-  return <FullModule config={{
+function ModuleModeling({ emit }) {
+  return <FullModule emit={emit} config={{
     tag: "Module 4 · Solving → Modeling (the summit)",
     judge: {
       prompt: (<>
@@ -806,8 +846,8 @@ function ModuleModeling() {
 }
  
 /* ---- Module 5 — The Real Number System (N-RN) ---------------------------- */
-function ModuleRealNumbers() {
-  return <FullModule config={{
+function ModuleRealNumbers({ emit }) {
+  return <FullModule emit={emit} config={{
     tag: "Module 5 · The Real Number System",
     judge: {
       prompt: (<>
@@ -848,8 +888,8 @@ function ModuleRealNumbers() {
 }
  
 /* ---- Module 6 — Quantities (N-Q) ----------------------------------------- */
-function ModuleQuantities() {
-  return <FullModule config={{
+function ModuleQuantities({ emit }) {
+  return <FullModule emit={emit} config={{
     tag: "Module 6 · Quantities & Units",
     judge: {
       prompt: (<>
@@ -887,8 +927,8 @@ function ModuleQuantities() {
 }
  
 /* ---- Module 7 — Polynomials (A-APR) -------------------------------------- */
-function ModulePolynomials() {
-  return <FullModule config={{
+function ModulePolynomials({ emit }) {
+  return <FullModule emit={emit} config={{
     tag: "Module 7 · Arithmetic with Polynomials",
     judge: {
       prompt: (<>
@@ -935,8 +975,8 @@ function ModulePolynomials() {
 }
  
 /* ---- Module 8 — Creating Equations (A-CED) ------------------------------- */
-function ModuleCreatingEquations() {
-  return <FullModule config={{
+function ModuleCreatingEquations({ emit }) {
+  return <FullModule emit={emit} config={{
     tag: "Module 8 · Creating Equations",
     judge: {
       prompt: (<>
@@ -992,7 +1032,7 @@ function ParabolaPlot({ curves, k }) {
   );
 }
  
-function ModuleBuildingFunctions() {
+function ModuleBuildingFunctions({ emit = () => {} }) {
   const [stage, setStage] = useState("judge");
   const [verdict, setVerdict] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -1002,8 +1042,22 @@ function ModuleBuildingFunctions() {
   const [amt, setAmt] = useState(4);             // producer slider
   const [why, setWhy] = useState("");
   const [stuck, setStuck] = useState(false);
-  const reset = () => { setStage("judge"); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false); setK(3); setDir("up"); setAmt(4); setWhy(""); };
-  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; } setSubmitted(true); };
+  const reset = () => { emit({ guideState: stage, action: "reset" });
+    setStage("judge"); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false); setK(3); setDir("up"); setAmt(4); setWhy(""); };
+  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; }
+    setSubmitted(true);
+    emit({ guideState: "judge", action: "check", result: caught ? "match" : "miss" }); };
+  const startProducer = () => {
+    setStage("producer");
+    emit({ guideState: "judge", action: "next" });
+  };
+  // The built transformation is correct by construction (picker + slider);
+  // only the explanation is collected — so the producer check carries no result.
+  const finishModule = () => {
+    emit({ guideState: "producer", beatId: "producer", action: "check" });
+    emit({ guideState: "producer", action: "complete" });
+    setStage("recap");
+  };
  
   const caught = /no|differ|up.*left|left.*up|outside.*vert|inside.*horiz|vertical.*horizontal|not the same|\+3 outside|outside.*input|one up.*one|direction|moves? (up|left)/i.test(verdict);
  
@@ -1049,13 +1103,13 @@ function ModuleBuildingFunctions() {
       ) : caught ? (
         <>
           <Coach tone="good">Exactly — <b>f(x)+k</b> moves the graph <b>up</b> (the k is outside, it changes the output); <b>f(x+k)</b> moves it <b>left</b> (the k is inside, it changes the input). Outside vs inside the function is the whole distinction.</Coach>
-          <Btn onClick={() => setStage("producer")}>Now build one yourself →</Btn>
+          <Btn onClick={startProducer}>Now build one yourself →</Btn>
         </>
       ) : (
         <>
           <Coach tone="redirect">Good start — and here's the piece I'd add: set k back to 0, then drag up slowly. The blue curve (k outside) slides <b>up</b>; the coral curve (k inside) slides <b>left</b>. A change <i>outside</i> f moves output (vertical); <i>inside</i> moves input (horizontal). Same k, different direction.</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={() => setStage("producer")}>Got it — build one yourself →</Btn>
+            <Btn onClick={startProducer}>Got it — build one yourself →</Btn>
             <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
           </div>
         </>
@@ -1090,7 +1144,7 @@ function ModuleBuildingFunctions() {
             (!isFiller(why) || stuck) ? (
               <>
                 <Coach tone="good">Your transformation is built correctly — the equation form matches the move you picked. Saved for your teacher. Your explanation of inside-vs-outside is in your words; reread it and make sure it says which one you used and why.</Coach>
-                <Btn onClick={() => setStage("recap")}>See the argument you built →</Btn>
+                <Btn onClick={finishModule}>See the argument you built →</Btn>
               </>
             ) : (
               <>
@@ -1125,7 +1179,7 @@ function ModuleBuildingFunctions() {
 }
  
 /* ---- Module 10 — Linear, Quadratic & Exponential Models (F-LE) ----------- */
-function ModuleLinExpModels() {
+function ModuleLinExpModels({ emit = () => {} }) {
   const [stage, setStage] = useState("judge");
   const [verdict, setVerdict] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -1136,8 +1190,20 @@ function ModuleLinExpModels() {
   const [type, setType] = useState("");
   const [func, setFunc] = useState("");
   const [stuck, setStuck] = useState(false);
-  const reset = () => { setStage("judge"); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false); setYr(4); setStep("add"); setParam(50); setType(""); setFunc(""); };
-  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; } setSubmitted(true); };
+  const reset = () => { emit({ guideState: stage, action: "reset" });
+    setStage("judge"); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false); setYr(4); setStep("add"); setParam(50); setType(""); setFunc(""); };
+  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; }
+    setSubmitted(true);
+    emit({ guideState: "judge", action: "check", result: caught ? "match" : "miss" }); };
+  const startProducer = () => {
+    setStage("producer");
+    emit({ guideState: "judge", action: "next" });
+  };
+  const finishModule = (producerOk) => {
+    emit({ guideState: "producer", beatId: "producer", action: "check", result: producerOk ? "match" : "miss" });
+    emit({ guideState: "producer", action: "complete" });
+    setStage("recap");
+  };
  
   const caught = /no|differ|linear.*expon|expon.*linear|add.*multipl|multipl.*add|constant (difference|ratio)|×|times|ratio|not the same|diverge|curve|gap/i.test(verdict);
  
@@ -1195,13 +1261,13 @@ function ModuleLinExpModels() {
       ) : caught ? (
         <>
           <Coach tone="good">Right — Plan A <b>adds 50 every year</b> (constant difference → <b>linear</b>, a straight line); Plan B <b>multiplies by 1.5</b> (constant ratio → <b>exponential</b>, a curve that runs away). They start close, then the gap explodes. Add-vs-multiply is how you pick the model.</Coach>
-          <Btn onClick={() => setStage("producer")}>Now build one yourself →</Btn>
+          <Btn onClick={startProducer}>Now build one yourself →</Btn>
         </>
       ) : (
         <>
           <Coach tone="redirect">Good start — and here's the piece I'd add: drag the years all the way out and watch the gap. A straight line (adding) can't keep up with a curve (multiplying). Plan A goes +50, +50; Plan B goes ×1.5, ×1.5. One is linear, one is exponential — what's the difference?</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={() => setStage("producer")}>Got it — build one yourself →</Btn>
+            <Btn onClick={startProducer}>Got it — build one yourself →</Btn>
             <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
           </div>
         </>
@@ -1250,7 +1316,7 @@ function ModuleLinExpModels() {
             if ((typeMatches && fillerOk) || stuck) return (
               <>
                 <Coach tone="good">Your label matches the shape you built, and your function is saved for your teacher. Reread your explanation — does it say how the straight-line-vs-curve signature told you which type it is?</Coach>
-                <Btn onClick={() => setStage("recap")}>See the argument you built →</Btn>
+                <Btn onClick={() => finishModule(typeMatches)}>See the argument you built →</Btn>
               </>
             );
             return (
@@ -1290,8 +1356,8 @@ function ModuleLinExpModels() {
 }
  
 /* ---- Module 11 — Interpreting Data (S-ID) -------------------------------- */
-function ModuleData() {
-  return <FullModule config={{
+function ModuleData({ emit }) {
+  return <FullModule emit={emit} config={{
     tag: "Module 11 · Interpreting Categorical & Quantitative Data",
     judge: {
       prompt: (<>
@@ -1338,19 +1404,30 @@ function ModuleData() {
 /* ============================================================================
    SHELL
    ============================================================================ */
+// slug/version = the internal-grain moduleId + MODULE_VERSION (§8 ruling);
+// roundId = the internal module's fixed judge scenario, append-only (spec §4.6).
 const MODULES = [
-  { id: 1, title: "Interpreting Functions", Comp: ModuleFunctions, cluster: "F-IF" },
-  { id: 2, title: "Systems of Equations", Comp: ModuleSystems, cluster: "A-REI (systems)" },
-  { id: 3, title: "Seeing Structure in Expressions", Comp: ModuleExpressions, cluster: "A-SSE" },
-  { id: 4, title: "Solving → Modeling", Comp: ModuleModeling, cluster: "A-REI.B / A-CED" },
-  { id: 5, title: "Real Number System", Comp: ModuleRealNumbers, cluster: "N-RN" },
-  { id: 6, title: "Quantities & Units", Comp: ModuleQuantities, cluster: "N-Q" },
-  { id: 7, title: "Polynomials", Comp: ModulePolynomials, cluster: "A-APR" },
-  { id: 8, title: "Creating Equations", Comp: ModuleCreatingEquations, cluster: "A-CED" },
-  { id: 9, title: "Building Functions", Comp: ModuleBuildingFunctions, cluster: "F-BF" },
-  { id: 10, title: "Linear/Quad/Exp Models", Comp: ModuleLinExpModels, cluster: "F-LE" },
-  { id: 11, title: "Interpreting Data", Comp: ModuleData, cluster: "S-ID" },
+  { id: 1, slug: "interpreting-functions", version: "1.0.0", roundId: "jordan-vs-riley-run", title: "Interpreting Functions", Comp: ModuleFunctions, cluster: "F-IF" },
+  { id: 2, slug: "systems-of-equations", version: "1.0.0", roundId: "solution-is-2", title: "Systems of Equations", Comp: ModuleSystems, cluster: "A-REI (systems)" },
+  { id: 3, slug: "seeing-structure", version: "1.0.0", roundId: "decay-800-0.85n", title: "Seeing Structure in Expressions", Comp: ModuleExpressions, cluster: "A-SSE" },
+  { id: 4, slug: "solving-modeling", version: "1.0.0", roundId: "plant-1.5w+2", title: "Solving → Modeling", Comp: ModuleModeling, cluster: "A-REI.B / A-CED" },
+  { id: 5, slug: "real-number-system", version: "1.0.0", roundId: "classify-3-plus-sqrt5", title: "Real Number System", Comp: ModuleRealNumbers, cluster: "N-RN" },
+  { id: 6, slug: "quantities-units", version: "1.0.0", roundId: "ml-to-cartons", title: "Quantities & Units", Comp: ModuleQuantities, cluster: "N-Q" },
+  { id: 7, slug: "polynomials", version: "1.0.0", roundId: "poly-closure", title: "Polynomials", Comp: ModulePolynomials, cluster: "A-APR" },
+  { id: 8, slug: "creating-equations", version: "1.0.0", roundId: "savings-300-75w", title: "Creating Equations", Comp: ModuleCreatingEquations, cluster: "A-CED" },
+  { id: 9, slug: "building-functions", version: "1.0.0", roundId: "fxk-vs-fxplusk", title: "Building Functions", Comp: ModuleBuildingFunctions, cluster: "F-BF" },
+  { id: 10, slug: "linear-quad-exp-models", version: "1.0.0", roundId: "add50-vs-x1.5", title: "Linear/Quad/Exp Models", Comp: ModuleLinExpModels, cluster: "F-LE" },
+  { id: 11, slug: "interpreting-data", version: "1.0.0", roundId: "icecream-pools", title: "Interpreting Data", Comp: ModuleData, cluster: "S-ID" },
 ];
+
+// Read by the StartGate (spec §8): the suite mounts with internal module 1
+// live, so the studentCode-dismissal round_enter carries its internal grain.
+export const TELEMETRY_ENTRY = {
+  moduleId: `${SUITE}/interpreting-functions`,
+  moduleVersion: "1.0.0",
+  roundId: "jordan-vs-riley-run",
+  guideState: "judge",
+};
  
 // Grouped by LEAP reporting category so a student can match the score report.
 const GROUPS = [
@@ -1405,6 +1482,19 @@ export default function App() {
     setStore((s) => (s[title] === text ? s : { ...s, [title]: text }))).current;
   const ctx = useMemo(() => ({ record }), [record]);
   const mod = MODULES.find((m) => m.id === active);
+
+  const { forModule } = useTelemetry();
+  // Internal-grain emitter (§8 ruling), pre-bound to the module's scenario
+  // roundId so internals only supply guideState/action/result/beatId.
+  const emitFor = (m) => {
+    const e = forModule(`${SUITE}/${m.slug}`, m.version);
+    return (partial) => e({ roundId: m.roundId, ...partial });
+  };
+  // Nav select is the suite's round-entry gate (spec §4.5).
+  const openModule = (m) => {
+    setActive(m.id);
+    emitFor(m)({ guideState: "judge", action: "round_enter" });
+  };
   return (
     <SessionContext.Provider value={ctx}>
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: FONT_BODY, color: C.ink }}>
@@ -1428,7 +1518,7 @@ export default function App() {
                 const on = m.id === active;
                 const attempted = Object.keys(store).some((k) => k.includes(m.title) && store[k] && store[k].trim());
                 return (
-                  <button key={m.id} onClick={() => setActive(m.id)}
+                  <button key={m.id} onClick={() => openModule(m)}
                     style={{ textAlign: "left", border: `1px solid ${on ? C.ink : C.line}`,
                       background: on ? C.ink : C.panel, color: on ? C.bg : C.ink, padding: "8px 13px",
                       borderRadius: 10, cursor: "pointer", fontFamily: FONT_BODY, position: "relative" }}>
@@ -1449,7 +1539,7 @@ export default function App() {
       <SessionExport store={store} />
  
       <main style={{ maxWidth: 760, margin: "0 auto", padding: "12px 22px 80px" }}>
-        {mod?.Comp ? <mod.Comp /> : <div style={{ color: C.sub }}>Coming this summer.</div>}
+        {mod?.Comp ? <mod.Comp emit={emitFor(mod)} /> : <div style={{ color: C.sub }}>Coming this summer.</div>}
       </main>
     </div>
     </SessionContext.Provider>
