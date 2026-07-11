@@ -1,7 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef, useContext, createContext } from "react";
+import { useTelemetry } from "../lib/TelemetryContext";
 
 // Bump on pedagogically meaningful change only (spec §4.6); roundIds are append-only.
+// This is the suite shell's version; each internal module carries its own
+// `version` in the MODULES registry below (§8 suite-grain ruling).
 export const MODULE_VERSION = "1.0.0";
+
+const SUITE = "geometry-remediation";
  
 /* Session store: modules report copy-lines; app-level button reads the union. */
 const SessionContext = createContext(null);
@@ -193,7 +198,7 @@ function slope(x1, y1, x2, y2) {
    BUILD 1 — COORDINATE REASONING  (released Type II parallelogram item)
    Parametric figure: P(a,b), S(a+c,b), T(c,0), O(0,0). Camera auto-fits a,b,c.
    ============================================================================ */
-function ModuleCoordinate() {
+function ModuleCoordinate({ emit = () => {} }) {
   const [stage, setStage] = useState("judge");
   const [verdict, setVerdict] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -207,9 +212,23 @@ function ModuleCoordinate() {
   const [conclude, setConclude] = useState("");
   const [stuck, setStuck] = useState(false);
  
-  const reset = () => { setStage("judge"); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false); setShowSecond(false);
+  const reset = () => { emit({ guideState: stage, action: "reset" });
+    setStage("judge"); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false); setShowSecond(false);
     setA(3); setB(4); setC(6); setSlopesText(""); setConclude(""); };
-  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; } setSubmitted(true); };
+  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; }
+    setSubmitted(true);
+    emit({ guideState: "judge", action: "check", result: caughtIncomplete ? "match" : "miss" }); };
+  const startProducer = () => {
+    setStage("producer");
+    emit({ guideState: "judge", action: "next" });
+  };
+  // The four slopes are computed for the student; only the written proof is
+  // collected — so the producer check carries no result.
+  const finishModule = () => {
+    emit({ guideState: "producer", beatId: "producer", action: "check" });
+    emit({ guideState: "producer", action: "complete" });
+    setStage("recap");
+  };
  
   // O(0,0) T(c,0) S(a+c,b) P(a,b). Sides: OT (bottom), PS (top), OP (left), TS (right)
   const O = [0, 0], T = [c, 0], S = [a + c, b], Pp = [a, b];
@@ -296,7 +315,7 @@ OT ∥ PS, so it's a parallelogram.`}
           <Coach tone="good">That's the catch. One pair parallel only gets you a <b>trapezoid</b>. A parallelogram
             needs <b>both</b> pairs of opposite sides parallel — they never checked OP and TS. On the LEAP, "both
             pairs, and here's why" is what earns the reasoning points, not just the computation point.</Coach>
-          <Btn onClick={() => setStage("producer")}>Now prove it yourself →</Btn>
+          <Btn onClick={startProducer}>Now prove it yourself →</Btn>
         </>
       ) : (
         <>
@@ -304,7 +323,7 @@ OT ∥ PS, so it's a parallelogram.`}
             pair parallel too. Hit "highlight the sides they didn't check" and look at OP and TS. A parallelogram
             needs <b>both</b> pairs. What's still unproven?</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={() => setStage("producer")}>Got it — prove it yourself →</Btn>
+            <Btn onClick={startProducer}>Got it — prove it yourself →</Btn>
             <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
           </div>
         </>
@@ -346,7 +365,7 @@ OT ∥ PS, so it's a parallelogram.`}
               <>
                 <Coach tone="good">The four slopes shown above are computed for you — OT and PS match, OP and TS match. Saved for your teacher.
                   Your two slope facts and conclusion are in your words; reread them and make sure they state both parallel pairs hold for <i>any</i> a, b, c.</Coach>
-                <Btn onClick={() => setStage("recap")}>See the argument you built →</Btn>
+                <Btn onClick={finishModule}>See the argument you built →</Btn>
               </>
             ) : (
               <>
@@ -386,7 +405,7 @@ OT ∥ PS, so it's a parallelogram.`}
    BUILD 2 — RIGHT-TRIANGLE TRIG  (the no-diagram probe)
    Judge stage HAS a triangle (catch sin-vs-tan). Producer stage has NO diagram.
    ============================================================================ */
-function ModuleTrig() {
+function ModuleTrig({ emit = () => {} }) {
   const [stage, setStage] = useState("judge");
   const [theta, setTheta] = useState(37);
   const [verdict, setVerdict] = useState("");
@@ -400,9 +419,26 @@ function ModuleTrig() {
   const [answer, setAnswer] = useState("");
   const [interpret, setInterpret] = useState("");
  
-  const reset = () => { setStage("judge"); setTheta(37); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false);
+  const reset = () => { emit({ guideState: stage, action: "reset" });
+    setStage("judge"); setTheta(37); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false);
     setOppSide(""); setAdjSide(""); setRatio(""); setAnswer(""); setInterpret(""); };
-  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; } setSubmitted(true); };
+  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; }
+    setSubmitted(true);
+    emit({ guideState: "judge", action: "check", result: caughtRatio ? "match" : "miss" }); };
+  const startProducer = () => {
+    setStage("producer");
+    emit({ guideState: "judge", action: "next" });
+  };
+  // The ratio pick self-adjudicates (cos θ or redirect) — that click is the
+  // producer's committed bet, so `check` fires there and finish only completes.
+  const pickRatio = (r) => {
+    setRatio(r);
+    emit({ guideState: "producer", beatId: "ratio", action: "check", result: r === "cos θ" ? "match" : "miss" });
+  };
+  const finishModule = () => {
+    emit({ guideState: "producer", action: "complete" });
+    setStage("recap");
+  };
  
   const caughtRatio = /tan|two leg|both leg|no hypoten|leg|opposite.*adjacent|adjacent.*opposite|not sine|isn'?t sine/i.test(verdict);
  
@@ -457,7 +493,7 @@ function ModuleTrig() {
           <Coach tone="good">Exactly. 3 and 4 are the two <b>legs</b> — opposite and adjacent. Sine needs the
             hypotenuse, which wasn't given. The ratio that relates the two legs is <b>tan θ = 3/4</b>. Picking the
             ratio is the whole skill here; the test won't tell you which one to use.</Coach>
-          <Btn onClick={() => setStage("producer")}>Now solve one with no diagram →</Btn>
+          <Btn onClick={startProducer}>Now solve one with no diagram →</Btn>
         </>
       ) : (
         <>
@@ -465,7 +501,7 @@ function ModuleTrig() {
             (adjacent). Is 4 the hypotenuse? It isn't — the hypotenuse is the slanted side, and it wasn't given.
             So which ratio uses the <b>two legs</b>?</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={() => setStage("producer")}>Got it — solve one →</Btn>
+            <Btn onClick={startProducer}>Got it — solve one →</Btn>
             <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
           </div>
         </>
@@ -508,7 +544,7 @@ function ModuleTrig() {
           <P style={{ marginBottom: 4, marginTop: 16 }}>Now choose the ratio that uses the two sides you actually know:</P>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {["sin θ", "cos θ", "tan θ"].map((r) => (
-              <button key={r} onClick={() => setRatio(r)}
+              <button key={r} onClick={() => pickRatio(r)}
                 style={{ flex: "1 1 90px", minWidth: 90, fontFamily: MONO, fontSize: 14, fontWeight: 600,
                   padding: "10px 8px", borderRadius: 9, cursor: "pointer",
                   border: `1px solid ${ratio === r ? C.accent : C.line}`,
@@ -534,7 +570,7 @@ function ModuleTrig() {
               <>
                 <Coach tone="good">You chose the right ratio — cosine, from the two sides you had. Saved for your teacher.
                   Your solve and your real-life meaning are in your words; reread them and make sure the angle and its meaning are both there.</Coach>
-                <Btn onClick={() => setStage("recap")}>See the argument you built →</Btn>
+                <Btn onClick={finishModule}>See the argument you built →</Btn>
               </>
             ) : (
               <>
@@ -576,7 +612,7 @@ function ModuleTrig() {
    GENERIC FULL MODULE (judge → producer → recap) — Geometry-styled
    Same spine as the two hand-built modules, config-driven for breadth.
    ============================================================================ */
-function FullModule({ config }) {
+function FullModule({ config, emit = () => {} }) {
   const [stage, setStage] = useState("judge");
   const [verdict, setVerdict] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -584,7 +620,8 @@ function FullModule({ config }) {
   const [stuck, setStuck] = useState(false);
   const [vals, setVals] = useState({});
   const setVal = (k, v) => setVals((s) => ({ ...s, [k]: v }));
-  const reset = () => { setStage("judge"); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false); setVals({}); };
+  const reset = () => { emit({ guideState: stage, action: "reset" });
+    setStage("judge"); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false); setVals({}); };
   const caught = config.judge.caught.test(verdict);
   const ready = config.producer.ready({ ...vals, verdict });
   const defaultCheck = (s) => {
@@ -595,7 +632,18 @@ function FullModule({ config }) {
   const correct = ready && checkResult.ok;
   const wrong = ready && !checkResult.ok && !stuck;
   const passable = correct || stuck;
-  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; } setSubmitted(true); };
+  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; }
+    setSubmitted(true);
+    emit({ guideState: "judge", action: "check", result: caught ? "match" : "miss" }); };
+  const startProducer = () => {
+    setStage("producer");
+    emit({ guideState: "judge", action: "next" });
+  };
+  const finishModule = () => {
+    emit({ guideState: "producer", beatId: "producer", action: "check", result: checkResult.ok ? "match" : "miss" });
+    emit({ guideState: "producer", action: "complete" });
+    setStage("recap");
+  };
  
   useSessionReport(config.tag, stage === "judge" && !submitted ? null : config.recap.copy({ ...vals, verdict }));
  
@@ -617,13 +665,13 @@ function FullModule({ config }) {
       ) : caught ? (
         <>
           <Coach tone="good">{config.judge.goodCoach}</Coach>
-          <Btn onClick={() => setStage("producer")}>Now build one yourself →</Btn>
+          <Btn onClick={startProducer}>Now build one yourself →</Btn>
         </>
       ) : (
         <>
           <Coach tone="redirect">{config.judge.redirectCoach}</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={() => setStage("producer")}>Got it — build one yourself →</Btn>
+            <Btn onClick={startProducer}>Got it — build one yourself →</Btn>
             <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
           </div>
         </>
@@ -647,7 +695,7 @@ function FullModule({ config }) {
           {passable && (
             <>
               <Coach tone="good">{config.producer.goodCoach}</Coach>
-              <Btn onClick={() => setStage("recap")}>See the argument you built →</Btn>
+              <Btn onClick={finishModule}>See the argument you built →</Btn>
             </>
           )}
         </div>
@@ -677,8 +725,8 @@ function Fig({ children, h = 220 }) {
 }
  
 /* ---- Module 3 — Congruence (G-CO) ---------------------------------------- */
-function ModuleCongruence() {
-  return <FullModule config={{
+function ModuleCongruence({ emit }) {
+  return <FullModule emit={emit} config={{
     tag: "Module 3 · Congruence",
     judge: {
       prompt: (<>
@@ -728,7 +776,7 @@ so the triangles are congruent by SSA.`}</pre>
 }
  
 /* ---- Module 4 — Similarity & Transformations (G-SRT.A/B) ----------------- */
-function ModuleSimilarity() {
+function ModuleSimilarity({ emit = () => {} }) {
   const [stage, setStage] = useState("judge");
   const [verdict, setVerdict] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -738,8 +786,22 @@ function ModuleSimilarity() {
   const [base, setBase] = useState(20);   // producer base area
   const [rule, setRule] = useState("");
   const [stuck, setStuck] = useState(false);
-  const reset = () => { setStage("judge"); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false); setK(3); setPk(4); setBase(20); setRule(""); };
-  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; } setSubmitted(true); };
+  const reset = () => { emit({ guideState: stage, action: "reset" });
+    setStage("judge"); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false); setK(3); setPk(4); setBase(20); setRule(""); };
+  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; }
+    setSubmitted(true);
+    emit({ guideState: "judge", action: "check", result: caught ? "match" : "miss" }); };
+  const startProducer = () => {
+    setStage("producer");
+    emit({ guideState: "judge", action: "next" });
+  };
+  // The scaled area is computed live for the student; only the written rule
+  // is collected — so the producer check carries no result.
+  const finishModule = () => {
+    emit({ guideState: "producer", beatId: "producer", action: "check" });
+    emit({ guideState: "producer", action: "complete" });
+    setStage("recap");
+  };
  
   const caught = /squared|²|\bk2\b|k\^2|factor.*squar|squar.*factor|not (just )?k|k times k|grid|count|nine|n²/i.test(verdict) || /\b(area).*\b(k|factor)\b.*(square|²|twice)/i.test(verdict);
  
@@ -796,13 +858,13 @@ function ModuleSimilarity() {
       ) : caught ? (
         <>
           <Coach tone="good">Exactly — area scales by the factor <b>squared</b>: at k = {k} that's <b>{k * k}</b> unit squares, not {k}. Lengths scale by k, areas by k², volumes by k³. That relationship is what the whole similarity cluster is built on.</Coach>
-          <Btn onClick={() => setStage("producer")}>Now scale one yourself →</Btn>
+          <Btn onClick={startProducer}>Now scale one yourself →</Btn>
         </>
       ) : (
         <>
           <Coach tone="redirect">Good start — and here's the piece I'd add: drag k to 4 and literally count the little squares filling the big one. It's a grid — {4}×{4} = 16, not 4. Area scales by the factor <i>squared</i>. So what's the real area multiplier?</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={() => setStage("producer")}>Got it — scale one yourself →</Btn>
+            <Btn onClick={startProducer}>Got it — scale one yourself →</Btn>
             <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
           </div>
         </>
@@ -837,7 +899,7 @@ function ModuleSimilarity() {
             (!isFiller(rule) || stuck) ? (
               <>
                 <Coach tone="good">The live display shows new area = base × k² holding for every k. Saved for your teacher. Your rule is in your own words; reread it — does it say <i>why</i> area squares (two-dimensional, both directions scale)?</Coach>
-                <Btn onClick={() => setStage("recap")}>See the argument you built →</Btn>
+                <Btn onClick={finishModule}>See the argument you built →</Btn>
               </>
             ) : (
               <>
@@ -872,7 +934,7 @@ function ModuleSimilarity() {
 }
  
 /* ---- Module 5 — Circles (G-C) -------------------------------------------- */
-function ModuleCircles() {
+function ModuleCircles({ emit = () => {} }) {
   const [stage, setStage] = useState("judge");
   const [verdict, setVerdict] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -881,8 +943,22 @@ function ModuleCircles() {
   const [central, setCentral] = useState(80);  // producer: central angle (deg)
   const [why, setWhy] = useState("");
   const [stuck, setStuck] = useState(false);
-  const reset = () => { setStage("judge"); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false); setVAngle(210); setCentral(80); setWhy(""); };
-  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; } setSubmitted(true); };
+  const reset = () => { emit({ guideState: stage, action: "reset" });
+    setStage("judge"); setVerdict(""); setSubmitted(false); setNudged(false); setStuck(false); setVAngle(210); setCentral(80); setWhy(""); };
+  const submitVerdict = () => { if (isThinVerdict(verdict) && !nudged) { setNudged(true); return; }
+    setSubmitted(true);
+    emit({ guideState: "judge", action: "check", result: caught ? "match" : "miss" }); };
+  const startProducer = () => {
+    setStage("producer");
+    emit({ guideState: "judge", action: "next" });
+  };
+  // Inscribed/arc values are computed live for the student; only the written
+  // explanation is collected — so the producer check carries no result.
+  const finishModule = () => {
+    emit({ guideState: "producer", beatId: "producer", action: "check" });
+    emit({ guideState: "producer", action: "complete" });
+    setStage("recap");
+  };
  
   const caught = /half|twice|2×|double|central.*2|inscribed.*half|not equal|1\/2|0\.5|×2|two times|stays|always|same ratio|constant/i.test(verdict);
  
@@ -953,13 +1029,13 @@ function ModuleCircles() {
       ) : caught ? (
         <>
           <Coach tone="good">Right — they're <b>not equal</b>. No matter where you drag the vertex, the inscribed angle stays <b>{inscribed}°</b> — exactly <b>half</b> the {centralMeasure}° central angle. "Same arc" sets a fixed 2:1 relationship, and the inscribed angle being constant on the arc is the inscribed-angle theorem itself.</Coach>
-          <Btn onClick={() => setStage("producer")}>Now use the relationship →</Btn>
+          <Btn onClick={startProducer}>Now use the relationship →</Btn>
         </>
       ) : (
         <>
           <Coach tone="redirect">Good start — and here's the piece I'd add: drag the vertex all the way around. Notice the inscribed angle never changes and is always <i>smaller</i> than the central. It sits at exactly <b>half</b>. Which one is bigger, and what's the fixed ratio?</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={() => setStage("producer")}>Got it — use the relationship →</Btn>
+            <Btn onClick={startProducer}>Got it — use the relationship →</Btn>
             <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
           </div>
         </>
@@ -984,7 +1060,7 @@ function ModuleCircles() {
             (!isFiller(why) || stuck) ? (
               <>
                 <Coach tone="good">The display confirms inscribed = half the central, and arc = central. Saved for your teacher. Your explanation is in your own words; reread it and make sure it ties the arc to its central angle and the inscribed to half.</Coach>
-                <Btn onClick={() => setStage("recap")}>See the argument you built →</Btn>
+                <Btn onClick={finishModule}>See the argument you built →</Btn>
               </>
             ) : (
               <>
@@ -1044,8 +1120,8 @@ function ProducerCircle({ central }) {
 }
  
 /* ---- Module 6 — Volume → Micro-model (G-GMD / LEAP.III.GM.4) — summit ----- */
-function ModuleVolume() {
-  return <FullModule config={{
+function ModuleVolume({ emit }) {
+  return <FullModule emit={emit} config={{
     tag: "Module 6 · Volume → Micro-model (the summit)",
     judge: {
       prompt: (<>
@@ -1097,8 +1173,8 @@ function ModuleVolume() {
 }
  
 /* ---- Module 7 — Modeling with Geometry (G-MG) ---------------------------- */
-function ModuleModelingGeo() {
-  return <FullModule config={{
+function ModuleModelingGeo({ emit }) {
+  return <FullModule emit={emit} config={{
     tag: "Module 7 · Modeling with Geometry",
     judge: {
       prompt: (<>
@@ -1136,8 +1212,8 @@ People = 20,000 × 50 = 1,000,000`}</pre>
 }
  
 /* ---- Module 8 — Conditional Probability (S-CP) --------------------------- */
-function ModuleProbability() {
-  return <FullModule config={{
+function ModuleProbability({ emit }) {
+  return <FullModule emit={emit} config={{
     tag: "Module 8 · Conditional Probability",
     judge: {
       prompt: (<>
@@ -1184,16 +1260,27 @@ so they must be independent.`}</pre>
 /* ============================================================================
    SHELL
    ============================================================================ */
+// slug/version = the internal-grain moduleId + MODULE_VERSION (§8 ruling);
+// roundId = the internal module's fixed judge scenario, append-only (spec §4.6).
 const MODULES = [
-  { id: 1, title: "Coordinate Reasoning", Comp: ModuleCoordinate, cluster: "G-GPE" },
-  { id: 2, title: "Right-Triangle Trig", Comp: ModuleTrig, cluster: "G-SRT.C" },
-  { id: 3, title: "Congruence", Comp: ModuleCongruence, cluster: "G-CO" },
-  { id: 4, title: "Similarity & Transformations", Comp: ModuleSimilarity, cluster: "G-SRT.A/B" },
-  { id: 5, title: "Circles", Comp: ModuleCircles, cluster: "G-C" },
-  { id: 6, title: "Volume → Micro-model", Comp: ModuleVolume, cluster: "G-GMD" },
-  { id: 7, title: "Modeling with Geometry", Comp: ModuleModelingGeo, cluster: "G-MG" },
-  { id: 8, title: "Conditional Probability", Comp: ModuleProbability, cluster: "S-CP" },
+  { id: 1, slug: "coordinate-reasoning", version: "1.0.0", roundId: "one-pair-proof", title: "Coordinate Reasoning", Comp: ModuleCoordinate, cluster: "G-GPE" },
+  { id: 2, slug: "right-triangle-trig", version: "1.0.0", roundId: "sin-3-4-ladder", title: "Right-Triangle Trig", Comp: ModuleTrig, cluster: "G-SRT.C" },
+  { id: 3, slug: "congruence", version: "1.0.0", roundId: "ssa-claim", title: "Congruence", Comp: ModuleCongruence, cluster: "G-CO" },
+  { id: 4, slug: "similarity-transformations", version: "1.0.0", roundId: "area-scale-k2", title: "Similarity & Transformations", Comp: ModuleSimilarity, cluster: "G-SRT.A/B" },
+  { id: 5, slug: "circles", version: "1.0.0", roundId: "inscribed-half-central", title: "Circles", Comp: ModuleCircles, cluster: "G-C" },
+  { id: 6, slug: "volume-micro-model", version: "1.0.0", roundId: "boulder-sphere", title: "Volume → Micro-model", Comp: ModuleVolume, cluster: "G-GMD" },
+  { id: 7, slug: "modeling-with-geometry", version: "1.0.0", roundId: "density-units-block", title: "Modeling with Geometry", Comp: ModuleModelingGeo, cluster: "G-MG" },
+  { id: 8, slug: "conditional-probability", version: "1.0.0", roundId: "sport-band-overlap", title: "Conditional Probability", Comp: ModuleProbability, cluster: "S-CP" },
 ];
+
+// Read by the StartGate (spec §8): the suite mounts with internal module 1
+// live, so the studentCode-dismissal round_enter carries its internal grain.
+export const TELEMETRY_ENTRY = {
+  moduleId: `${SUITE}/coordinate-reasoning`,
+  moduleVersion: "1.0.0",
+  roundId: "one-pair-proof",
+  guideState: "judge",
+};
  
 // Grouped by reporting category so a student can match the score report.
 const GROUPS = [
@@ -1248,6 +1335,20 @@ export default function App() {
     setStore((s) => (s[title] === text ? s : { ...s, [title]: text }))).current;
   const ctx = useMemo(() => ({ record }), [record]);
   const mod = MODULES.find((m) => m.id === active);
+
+  const { forModule } = useTelemetry();
+  // Internal-grain emitter (§8 ruling), pre-bound to the module's scenario
+  // roundId so internals only supply guideState/action/result/beatId.
+  const emitFor = (m) => {
+    const e = forModule(`${SUITE}/${m.slug}`, m.version);
+    return (partial) => e({ roundId: m.roundId, ...partial });
+  };
+  // Nav select is the suite's round-entry gate (spec §4.5).
+  const openModule = (m) => {
+    setActive(m.id);
+    emitFor(m)({ guideState: "judge", action: "round_enter" });
+  };
+
   return (
     <SessionContext.Provider value={ctx}>
     <div style={{ minHeight: "100vh", background: C.paper, fontFamily: FONT_BODY, color: C.ink }}>
@@ -1271,7 +1372,7 @@ export default function App() {
                 const on = m.id === active;
                 const attempted = Object.keys(store).some((k) => k.includes(m.title) && store[k] && store[k].trim());
                 return (
-                  <button key={m.id} onClick={() => setActive(m.id)}
+                  <button key={m.id} onClick={() => openModule(m)}
                     style={{ textAlign: "left", border: `1px solid ${on ? C.ink : C.line}`,
                       background: on ? C.ink : C.panel, color: on ? C.paper : C.ink, padding: "8px 13px",
                       borderRadius: 10, cursor: "pointer", fontFamily: FONT_BODY }}>
@@ -1292,7 +1393,7 @@ export default function App() {
       <SessionExport store={store} />
  
       <main style={{ maxWidth: 760, margin: "0 auto", padding: "12px 22px 80px" }}>
-        {mod?.Comp ? <mod.Comp /> : <div style={{ color: C.inkSoft }}>On the roadmap.</div>}
+        {mod?.Comp ? <mod.Comp emit={emitFor(mod)} /> : <div style={{ color: C.inkSoft }}>On the roadmap.</div>}
       </main>
     </div>
     </SessionContext.Provider>
