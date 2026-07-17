@@ -113,6 +113,7 @@ function exportTelemetryCsv() {
 export default function App() {
   const [pendingId, setPendingId] = useState(null); // gate showing
   const [active, setActive] = useState(null); // { id, session }
+  const [confirmingClear, setConfirmingClear] = useState(false);
 
   if (active) {
     const Active = lazyById[active.id];
@@ -162,7 +163,27 @@ export default function App() {
         <button onClick={exportTelemetryCsv} style={{ fontSize: "13px" }}>
           Export telemetry CSV
         </button>{" "}
-        (flat event log, one row per event — spec §8)
+        (flat event log, one row per event — spec §8){" "}
+        {!confirmingClear ? (
+          <button onClick={() => setConfirmingClear(true)} style={{ fontSize: "13px", marginLeft: "8px" }}>
+            Clear device telemetry…
+          </button>
+        ) : (
+          <span>
+            <button
+              onClick={() => {
+                sink.flush();
+                setConfirmingClear(false);
+              }}
+              style={{ fontSize: "13px", marginLeft: "8px", color: "#a3261f" }}
+            >
+              Really clear — export first
+            </button>
+            <button onClick={() => setConfirmingClear(false)} style={{ fontSize: "13px", marginLeft: "4px" }}>
+              Cancel
+            </button>
+          </span>
+        )}
       </p>
     </main>
   );
