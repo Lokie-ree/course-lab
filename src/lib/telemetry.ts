@@ -83,13 +83,39 @@ export interface StringStore {
 
 export const STORAGE_KEY = "course-lab:events";
 
+// Chrome with cookies/site-data blocked throws on the localStorage property
+// access itself — resolve the default store defensively.
+function defaultStore(): StringStore | null {
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function memoryFallbackStore(): StringStore {
+  const map = new Map<string, string>();
+  return {
+    getItem: (k) => map.get(k) ?? null,
+    setItem: (k, v) => {
+      map.set(k, v);
+    },
+    removeItem: (k) => {
+      map.delete(k);
+    },
+  };
+}
+
 export function createLocalStorageSink(
-  store: StringStore = globalThis.localStorage,
+  store: StringStore | null | undefined = defaultStore(),
   key: string = STORAGE_KEY
 ): TelemetrySink {
+  // No usable store → buffer in memory: events survive the mount, not a
+  // refresh. Degraded telemetry beats a blocked student (spec §4.4 spirit).
+  const s: StringStore = store ?? memoryFallbackStore();
   const read = (): LabEvent[] => {
     try {
-      const raw = store.getItem(key);
+      const raw = s.getItem(key);
       const parsed = raw ? JSON.parse(raw) : [];
       return Array.isArray(parsed) ? parsed : [];
     } catch {
@@ -98,13 +124,21 @@ export function createLocalStorageSink(
   };
   return {
     write(event) {
-      const events = read();
-      events.push(event);
-      store.setItem(key, JSON.stringify(events));
+      try {
+        const events = read();
+        events.push(event);
+        s.setItem(key, JSON.stringify(events));
+      } catch {
+        // A storage failure drops the event, never the student's action.
+      }
     },
     flush() {
       const events = read();
-      store.removeItem(key);
+      try {
+        s.removeItem(key);
+      } catch {
+        // The caller still gets the events; the buffer just didn't clear.
+      }
       return events;
     },
     exportCsv() {

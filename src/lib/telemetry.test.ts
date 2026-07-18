@@ -118,3 +118,29 @@ describe("toCsv / exportCsv", () => {
     expect(sink.flush()).toHaveLength(1);
   });
 });
+
+describe("hardening — telemetry never breaks pedagogy", () => {
+  it("write never throws when the store rejects the write", () => {
+    const store = memoryStore();
+    store.setItem = () => {
+      throw new Error("QuotaExceededError");
+    };
+    const emit = createEmitter(createLocalStorageSink(store), context);
+    expect(() => emit(partial)).not.toThrow();
+  });
+
+  it("falls back to an in-memory buffer when no store is available", () => {
+    const sink = createLocalStorageSink(null);
+    createEmitter(sink, context)(partial);
+    expect(sink.flush()).toHaveLength(1);
+  });
+
+  it("flush returns the events even when the store rejects the clear", () => {
+    const store = memoryStore();
+    createEmitter(createLocalStorageSink(store), context)(partial);
+    store.removeItem = () => {
+      throw new Error("SecurityError");
+    };
+    expect(createLocalStorageSink(store).flush()).toHaveLength(1);
+  });
+});
