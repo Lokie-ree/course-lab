@@ -6,7 +6,7 @@ import { isRosterCode, normalizeStudentCode } from "./lib/roster";
 // Bare module picker — deliberately minimal (spec §5: move and version, not renovate).
 // ids follow the spine's moduleId convention (spec §4.2); the two Remediation
 // entries are multi-module suites (11 + 8 internal modules).
-const MODULES = [
+export const MODULES = [
   { id: "quadratics-ptr", title: "Quadratics PTR", load: () => import("./modules/QuadraticsPTR.jsx") },
   { id: "systems-ptr", title: "Systems PTR", load: () => import("./modules/SystemsPTR.jsx") },
   { id: "key-features-ptr", title: "Key Features PTR", load: () => import("./modules/KeyFeaturesPTR.jsx") },
