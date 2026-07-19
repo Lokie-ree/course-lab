@@ -1,5 +1,9 @@
 # course-lab
 
+**Live:** <https://course-lab-two.vercel.app> — the one production URL. Auto-deploys from `main` (Vercel).
+
+> **Teacher: collecting data.** Telemetry lives in each device's `localStorage`, so the CSV export runs **per device** — students click "Export telemetry CSV" on the picker and turn in the file, or the teacher exports at each machine. Centralizing collection is the backend-sink NOT-DOING trigger (spec §6). Students must only ever use the production URL above: every Vercel *preview* deployment is a different origin with its own empty event store, so events on any other URL silently vanish from exports.
+
 Production module library for the 2026–2027 six-course room (Math Essentials → BRCC dual-enrollment college algebra). Interaction families: PTR (Predict-Test-Reconcile), Bind-and-Justify, Assume-Fit-Reflect — plus two multi-module remediation suites.
 
 Founding document: [`docs/course-lab-founding-spec.md`](docs/course-lab-founding-spec.md) — why this repo exists, the architecture rulings, and the measurement-spine spec. If the repo drifts from those rulings, that document is the get-back reference.
