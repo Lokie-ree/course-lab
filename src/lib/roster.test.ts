@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isRosterCode, normalizeStudentCode } from "./roster";
+import { isRosterCode, normalizeStudentCode, ROSTER_CODES } from "./roster";
 
 const ROSTER = ["AB3X", "cd7y"];
 
@@ -23,5 +23,23 @@ describe("isRosterCode", () => {
   it("rejects empty and whitespace-only input", () => {
     expect(isRosterCode("", ROSTER)).toBe(false);
     expect(isRosterCode("   ", ROSTER)).toBe(false);
+  });
+});
+
+describe("production roster", () => {
+  it("contains no placeholder codes", () => {
+    expect(ROSTER_CODES).not.toContain("TEST01");
+    expect(ROSTER_CODES).not.toContain("TEST02");
+  });
+
+  it("codes are unique after normalization", () => {
+    const normalized = ROSTER_CODES.map(normalizeStudentCode);
+    expect(new Set(normalized).size).toBe(normalized.length);
+  });
+
+  it("every roster code admits itself through the real validator", () => {
+    for (const code of ROSTER_CODES) {
+      expect(isRosterCode(code)).toBe(true);
+    }
   });
 });
