@@ -305,6 +305,14 @@ function ModuleTransformationsPTR() {
   const [matched, setMatched] = useState(false);
   const [stuck, setStuck] = useState(false);
 
+  // SANDBOX — earned by finishing the producer round
+  const [showSandbox, setShowSandbox] = useState(false);
+  const [sbFamily, setSbFamily] = useState("quad");
+  const [sbA, setSbA] = useState(1);
+  const [sbH, setSbH] = useState(0);
+  const [sbK, setSbK] = useState(0);
+  const sandboxEntered = useRef(false);
+
   const { emit } = useTelemetry();
 
   const round = ROUNDS[idx];
@@ -368,7 +376,36 @@ function ModuleTransformationsPTR() {
     setPhase("recap");
   };
 
+  const enterSandbox = () => {
+    setShowSandbox(true);
+    if (!sandboxEntered.current) {
+      sandboxEntered.current = true;
+      // Earned reveal fires when the student USES the unlocked reveal
+      // (2026-07-09 ruling), not at the unlock moment.
+      emit({ roundId: SANDBOX_ROUND_ID, guideState: "sandbox", action: "reveal_earned" });
+    }
+  };
+
   const choiceLabel = (r, key) => (r.choices.find(([k]) => k === key) || [, ""])[1];
+
+  const roundLine = (i) => {
+    const r = ROUNDS[i], s = rounds[i];
+    return `${equationText(r.a, r.h, r.k)} on ${FAMILIES[r.family].label} — called "${choiceLabel(r, s.pick) || "(none)"}" (${s.pick === r.correct ? "matched" : "missed"}): "${s.why}"`;
+  };
+  const producerLine = pNumsOk
+    ? `${equationText(aN, hN, kN)} after ${attempts} ${attempts === 1 ? "try" : "tries"} — ${matched ? "matched the target" : "did not match"}`
+    : "(not attempted)";
+
+  useSessionReport(
+    "Module · F-BF.B.3 Function transformations (Predict→Test→Reconcile)",
+    rounds[0].committed ? [
+      "ALGEBRA — F-BF.B.3: how a, h, k move a graph in a·f(x + h) + k",
+      ...ROUNDS.map((_, i) => `Round ${i + 1}: ${roundLine(i)}`),
+      `Reconcile on the trap round (f(x + 2) shifts LEFT): ${rounds[RECONCILE_REQUIRED].reconcile || "(not written)"}`,
+      `Producer target ${equationText(PRODUCER.a, PRODUCER.h, PRODUCER.k)} on ${FAMILIES[PRODUCER.family].label}`,
+      `Student's parameters: ${producerLine}`,
+    ] : null
+  );
 
   const choiceBtn = (key, text) => {
     const active = state.pick === key;
@@ -565,7 +602,93 @@ function ModuleTransformationsPTR() {
           </>
         );
       })()}
+
+      {/* ---------------- RECAP + EARNED SANDBOX ---------------- */}
+      {phase === "recap" && (
+        <div>
+          <StageTag>The rule you built</StageTag>
+          <H>Your reasoning, assembled</H>
+          <div style={{ background: C.bg, border: `1px solid ${C.line}`, borderRadius: 12, padding: "18px 20px", marginTop: 12 }}>
+            {ROUNDS.map((r, i) => (
+              <RecapRow key={r.roundId}
+                label={`Round ${i + 1} — ${equationText(r.a, r.h, r.k)} on ${FAMILIES[r.family].label}`}
+                text={`Locked call: ${choiceLabel(r, rounds[i].pick) || "—"} (${rounds[i].pick === r.correct ? "matched" : "missed"}) — "${rounds[i].why}"`} />
+            ))}
+            <RecapRow label="Your reconcile on the trap round" text={rounds[RECONCILE_REQUIRED].reconcile} />
+            <RecapRow label="Producer target" text={`${equationText(PRODUCER.a, PRODUCER.h, PRODUCER.k)} on ${FAMILIES[PRODUCER.family].label}`} />
+            <RecapRow label="What you entered" text={producerLine} />
+          </div>
+
+          <CopyResults lines={[
+            "ALGEBRA — F-BF.B.3: how a, h, k move a graph in a·f(x + h) + k",
+            ...ROUNDS.map((_, i) => `Round ${i + 1}: ${roundLine(i)}`),
+            `Reconcile (student's words): ${rounds[RECONCILE_REQUIRED].reconcile}`,
+            `Producer target: ${equationText(PRODUCER.a, PRODUCER.h, PRODUCER.k)}`,
+            `Student's parameters: ${producerLine}`,
+          ]} />
+
+          <div style={{ marginTop: 26, paddingTop: 22, borderTop: `1px solid ${C.line}` }}>
+            <StageTag>Unlocked</StageTag>
+            <H>Free play — move the graph yourself</H>
+            <P>You've earned the sliders. Nothing here is checked or recorded; drag until the rules feel obvious.</P>
+            {!showSandbox ? (
+              <Btn onClick={enterSandbox}>Open the sandbox →</Btn>
+            ) : (
+              <>
+                <div style={{ display: "flex", gap: 8, margin: "8px 0 14px" }}>
+                  {Object.entries(FAMILIES).map(([id, fam]) => (
+                    <Btn key={id} kind={sbFamily === id ? "primary" : "ghost"} onClick={() => setSbFamily(id)}>
+                      {fam.label}
+                    </Btn>
+                  ))}
+                </div>
+
+                <Plane xLabel="x" yLabel="y"
+                  curves={[
+                    { key: "ghost", f: FAMILIES[sbFamily].f, color: C.sub, width: 2, dash: "5 4" },
+                    { key: "live", f: transform(FAMILIES[sbFamily].f, sbA, sbH, sbK), color: C.ember, width: 2.8, animate: true },
+                  ]} />
+
+                <div style={{ background: C.bg, border: `1px solid ${C.line}`, borderRadius: 10,
+                  padding: "11px 14px", margin: "12px 0", fontFamily: "monospace", fontSize: 16, color: C.ink }}>
+                  <b style={{ color: C.ember }}>{equationText(sbA, sbH, sbK)}</b>
+                  <span style={{ color: C.sub, fontSize: 13 }}>{"  where f(x) = "}{FAMILIES[sbFamily].label.replace("y = ", "")}</span>
+                </div>
+
+                {/* Sliders emit NOTHING — drag telemetry is a deliberate NOT-DOING. */}
+                <Slider label="a — stretch and flip" value={sbA} min={-3} max={3} step={0.5} onChange={setSbA} skipZero />
+                <Slider label="h — inside the parentheses (watch the direction)" value={sbH} min={-5} max={5} step={1} onChange={setSbH} />
+                <Slider label="k — outside, after f runs" value={sbK} min={-5} max={5} step={1} onChange={setSbK} />
+
+                <div style={{ marginTop: 14 }}>
+                  <Btn kind="ghost" onClick={() => setShowSandbox(false)}>Hide the sandbox</Btn>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </section>
+  );
+}
+
+// a = 0 collapses the curve to y = k and reads as a bug, so the slider steps
+// past zero rather than the renderer special-casing it.
+function Slider({ label, value, min, max, step, onChange, skipZero }) {
+  return (
+    <label style={{ display: "block", margin: "12px 0" }}>
+      <span style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 600,
+        color: C.sub, marginBottom: 4 }}>
+        <span>{label}</span>
+        <span style={{ fontFamily: "monospace", color: C.ink }}>{String(value).replace("-", "−")}</span>
+      </span>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => {
+          const v = parseFloat(e.target.value);
+          onChange(skipZero && v === 0 ? (v >= value ? step : -step) : v);
+        }}
+        style={{ width: "100%", accentColor: C.ember }} />
+    </label>
   );
 }
 
