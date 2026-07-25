@@ -20,7 +20,13 @@ export interface LabEvent {
   moduleVersion: string; // MODULE_VERSION constant of the mounted module
   roundId: string; // append-only ids (spec §4.6)
   guideState: string; // per-module mapping (spec §4.2)
-  beatId?: string; // optional finer grain where one roundId spans attempts
+  // Optional finer grain where one roundId spans attempts. Two live meanings,
+  // both intentional: a constant phase marker echoing guideState on a
+  // single-check stage (beatId: 'producer', 10 modules), and a true
+  // discriminator where several checks share one roundId+guideState
+  // (BindTheParts per-token, AssumeFitReflect slope/intercept). Analysis must
+  // group by roundId+guideState+beatId, never by beatId alone.
+  beatId?: string;
   action: LabAction;
   result?: LabResult; // 'check' only, normalized (spec §4.2)
   ts: number; // Date.now()
