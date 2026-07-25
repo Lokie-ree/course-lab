@@ -285,14 +285,185 @@ function equationText(a, h, k) {
   return `y = ${aPart}${hPart}${kPart}`;
 }
 
+// Round 2 is the trap; its miss is the pedagogy, so its reconcile prose is
+// mandatory. Rounds 1 and 3 advance straight from the reveal.
+const RECONCILE_REQUIRED = 1;
+const RECONCILE_MIN = 12;
+
+const blankRound = () => ({ pick: "", why: "", nudged: false, committed: false, reconcile: "" });
+
 function ModuleTransformationsPTR() {
+  const [phase, setPhase] = useState("rounds"); // rounds -> producer -> recap
+  const [idx, setIdx] = useState(0);
+  const [rounds, setRounds] = useState(() => ROUNDS.map(blankRound));
+
+  const { emit } = useTelemetry();
+
+  const round = ROUNDS[idx];
+  const state = rounds[idx];
+  const family = FAMILIES[round.family];
+  const setState = (patch) =>
+    setRounds((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+
+  const wasRight = state.pick === round.correct;
+  const needsReconcile = idx === RECONCILE_REQUIRED;
+  const reconcileOk = !needsReconcile || state.reconcile.trim().length >= RECONCILE_MIN;
+
+  // --- named handlers: the only emit sites (spec §4.4) --------------------
+  const commitRound = () => {
+    if (state.pick === "") return;
+    if (isThinPrediction(state.why) && !state.nudged) { setState({ nudged: true }); return; }
+    setState({ committed: true });
+    emit({
+      roundId: round.roundId,
+      guideState: "predict",
+      action: "check",
+      result: state.pick === round.correct ? "match" : "miss",
+    });
+  };
+
+  const advanceRound = () => {
+    const next = ROUNDS[idx + 1];
+    setIdx(idx + 1);
+    // Round 1's round_enter came from the StartGate (TELEMETRY_ENTRY) — only
+    // rounds 2+ emit it, and only from here.
+    emit({ roundId: next.roundId, guideState: "predict", action: "round_enter" });
+  };
+
+  const startProducer = () => {
+    setPhase("producer");
+    emit({ roundId: PRODUCER.roundId, guideState: "producer", action: "round_enter" });
+  };
+
+  const choiceLabel = (r, key) => (r.choices.find(([k]) => k === key) || [, ""])[1];
+
+  const choiceBtn = (key, text) => {
+    const active = state.pick === key;
+    return (
+      <button key={key} onClick={() => setState({ pick: key })} disabled={state.committed}
+        style={{
+          display: "block", width: "100%", textAlign: "left",
+          cursor: state.committed ? "default" : "pointer",
+          fontFamily: FONT_BODY, fontSize: 15, lineHeight: 1.4, color: C.ink,
+          background: active ? C.panel : "transparent",
+          border: `1.5px solid ${active ? C.ember : C.line}`,
+          boxShadow: active ? `inset 3px 0 0 ${C.ember}` : "none",
+          borderRadius: 10, padding: "11px 14px", margin: "8px 0", transition: "all .12s",
+        }}>
+        <span style={{ fontWeight: active ? 700 : 500 }}>{text}</span>
+      </button>
+    );
+  };
+
   return (
     <section>
-      <StageTag>F-BF.B.3 · Predict</StageTag>
-      <H>transformations-ptr</H>
-      <P>Rounds land in the next commit.</P>
-      <Plane xLabel="x" yLabel="y"
-        curves={[{ key: "ghost", f: FAMILIES.quad.f, color: C.sub, width: 2, dash: "5 4" }]} />
+      {phase === "rounds" && (
+        <>
+          <StageTag>F-BF.B.3 · Round {idx + 1} of {ROUNDS.length} · Predict</StageTag>
+          <H>{round.prompt}</H>
+          <P>The base function is <b style={{ color: C.sub }}>{family.label}</b> — drawn dashed below. You're
+            predicting where <b style={{ color: C.ember }}>{equationText(round.a, round.h, round.k)}</b> puts it.</P>
+          <P style={{ margin: "10px 0 2px" }}><b>The transformed curve stays hidden</b> until you commit a call.</P>
+
+          <Plane xLabel="x" yLabel="y"
+            curves={[
+              { key: "ghost", f: family.f, color: C.sub, width: 2, dash: "5 4" },
+              ...(state.committed
+                ? [{ key: "moved", f: transform(family.f, round.a, round.h, round.k), color: C.ember, width: 2.8, animate: true }]
+                : []),
+            ]} />
+
+          <div style={{ margin: "14px 0 2px" }}>
+            {round.choices.map(([key, text]) => choiceBtn(key, text))}
+          </div>
+
+          <Field
+            label="Why? (one sentence — this locks in before the curve moves)"
+            value={state.why}
+            onChange={(v) => setState({ why: v })}
+            placeholder="I think it moves ___ because ___"
+            rows={2}
+            disabled={state.committed}
+          />
+
+          {state.nudged && !state.committed && isThinPrediction(state.why) && (
+            <Coach tone="redirect">Commit to a reason — even a hunch you're unsure of. The whole point is finding out
+              whether you're right, and you can't be wrong-then-fixed if you don't say anything. The curve moves the
+              second you do.</Coach>
+          )}
+
+          {!state.committed && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <Btn onClick={commitRound} disabled={state.pick === ""}>
+                {state.nudged && isThinPrediction(state.why) ? "Lock it in anyway →" : "Lock in my call → move the curve"}
+              </Btn>
+              {state.pick === "" && <span style={{ fontSize: 13, color: C.sub }}>Pick one first.</span>}
+            </div>
+          )}
+
+          {/* ---------------- TEST ---------------- */}
+          {state.committed && (
+            <div style={{ marginTop: 28, paddingTop: 22, borderTop: `1px solid ${C.line}` }}>
+              <StageTag>Test</StageTag>
+              <H>{wasRight ? "That's the move." : `It went ${choiceLabel(round, round.correct).toLowerCase()}.`}</H>
+              <P>Your locked call: <b>{choiceLabel(round, state.pick)}</b>. The solid curve above is
+                {" "}<b style={{ color: C.ember }}>{equationText(round.a, round.h, round.k)}</b>, drawn over the dashed
+                original.</P>
+
+              {/* verified-praise-only: praise ONLY the checked call */}
+              {wasRight ? (
+                <Coach tone="good">{idx === 0
+                  ? "You called it. The + 3 sits OUTSIDE the function, so it changes the output after f does its work — every point rises 3."
+                  : idx === 2
+                  ? "You called it. The negative flips the V across the x-axis, and the 2 doubles every output's distance from the axis — steeper, not wider."
+                  : "You called it."}</Coach>
+              ) : (
+                <Coach tone="neutral">{idx === RECONCILE_REQUIRED
+                  ? "It moved LEFT. f(x + 2) reaches any given output 2 units EARLIER than f does — the input is boosted before f runs, so the graph arrives sooner. Inside the parentheses works opposite to the sign you read."
+                  : idx === 0
+                  ? "It moved UP. The + 3 is outside the function, so it lifts every output after f has run."
+                  : "The −2 flips the V across the x-axis and doubles every output's distance from it — a reflection AND a vertical stretch."}</Coach>
+              )}
+
+              {/* ---------------- RECONCILE (trap round only) ---------------- */}
+              {needsReconcile && (
+                <div style={{ marginTop: 20 }}>
+                  <StageTag>Reconcile</StageTag>
+                  <P style={{ marginBottom: 2 }}>
+                    {wasRight
+                      ? "You were right — so nail the rule down. Why does a PLUS inside the parentheses move the graph in the minus direction?"
+                      : `You said "${choiceLabel(round, state.pick)}," and it went left. What did you expect, and what does + 2 inside the parentheses actually do?`}
+                  </P>
+                  <Field
+                    label={wasRight
+                      ? "Say why inside-the-parentheses runs opposite — in your own words"
+                      : "I thought ___, but f(x + 2) actually ___ because ___"}
+                    value={state.reconcile}
+                    onChange={(v) => setState({ reconcile: v })}
+                    placeholder={wasRight
+                      ? "A plus inside shifts left because…"
+                      : "I thought + 2 would move it right because…, but it moved left because…"}
+                    rows={3}
+                  />
+                  {!reconcileOk && (
+                    <div style={{ fontSize: 13, color: C.sub, marginTop: 2 }}>
+                      A sentence or two unlocks the next round. There's no right wording — just say what you noticed.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {reconcileOk && (
+                <div style={{ marginTop: 16 }}>
+                  {idx < ROUNDS.length - 1
+                    ? <Btn onClick={advanceRound}>Next round →</Btn>
+                    : <Btn onClick={startProducer}>Build one yourself →</Btn>}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </section>
   );
 }
