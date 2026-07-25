@@ -5,7 +5,9 @@
 
 > **REQUIRED INPUT:** two course columns are placeholders (`COURSE-5 ☐`, `COURSE-6 ☐`). Confirmed 2026-07-19: **Algebra II (EdgeEx)** and **Algebra III (EdgeEx)** are the two main preps (see steel `wiki/edge-ex-courses.md`); Math Essentials and BRCC College Algebra are the recorded endpoints. Randall: name the remaining two (a Geometry-bearing course would claim the geometry-remediation rows).
 
-## 1. Unit inventory (29 units)
+> **2026-07-24 — the assignment is two preps, not six.** The 2026–27 room is **Algebra II and Algebra III on EdgeEx** only (steel `wiki/decisions.md` 2026-07-22). The other four columns — Math Essentials, COURSE-5, COURSE-6, BRCC College Algebra — are **historical**: they record what the grid surfaced while there was lead time, and no longer drive build priority. The grid is not being rebuilt around the smaller assignment; only the two EdgeEx columns are live.
+
+## 1. Unit inventory (30 units)
 
 | # | moduleId | File | Family | Standards cited |
 |---|----------|------|--------|-----------------|
@@ -38,6 +40,7 @@
 | 27 | `geometry-remediation/volume-micro-model` | GeometryRemediation.jsx | Remediation suite | G-GMD |
 | 28 | `geometry-remediation/modeling-with-geometry` | GeometryRemediation.jsx | Remediation suite | G-MG |
 | 29 | `geometry-remediation/conditional-probability` | GeometryRemediation.jsx | Remediation suite | S-CP |
+| 30 | `transformations-ptr` | TransformationsPTR.jsx | PTR | F-BF.B.3 |
 
 ## 2. Coverage grid
 
@@ -74,6 +77,7 @@ Cells: ✔ (fits as-is) · ~ (fits with adaptation) · blank (no fit) · ☐ (Ra
 | `geometry-remediation/volume-micro-model` | ☐ | | ☐ | ☐ | ☐ | |
 | `geometry-remediation/modeling-with-geometry` | ☐ | | ☐ | ☐ | ☐ | |
 | `geometry-remediation/conditional-probability` | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |
+| `transformations-ptr` | ☐ | ✔ (U2 transformations; ~10 lessons) | ✔ (U4 transformations) | ☐ | ☐ | ~ |
 
 ## 3. Gaps and build/adapt/skip decisions
 
@@ -84,7 +88,7 @@ One row per course whose column has no ✔ (plus named content gaps inside cover
 | BRCC College Algebra | No ✔ anywhere — only ~ cells (algebra PTR modules fit the topics but dual-enrollment rigor/format unjudged) | ☐ | Dual-enrollment syllabus needed before judging; decide before the BRCC term start |
 | COURSE-5 ☐ | Course unnamed — column empty | ☐ (name the course first) | If it's Geometry-bearing, the 8 geometry-remediation rows claim it immediately |
 | COURSE-6 ☐ | Course unnamed — column empty | ☐ (name the course first) | Same |
-| Algebra II (EdgeEx) — content gaps | The genuinely-new AII strands have **zero** module coverage: complex numbers (U2), sequences & series (U8), trig/unit circle (U10) | ☐ build candidates; note `F-BF.B.3` transformation explorer (steel `initiatives/edgeex-build-family.md`) covers the U2/U4 transformation lessons cited in ~10 lessons across both courses | Highest-leverage builds; August start means U2 (quadratics/complex) hits first, U8/U10 are spring |
+| Algebra II (EdgeEx) — content gaps | **Transformations: closed 2026-07-24** — `transformations-ptr` (`F-BF.B.3`) ships the U2/U10 + AIII U4 transformation lessons, the ~10-lesson reuse block. Still **zero** coverage: complex numbers (U2), sequences & series (U8), trig/unit circle (U10) | ☐ build candidates — but build two is gated on `transformations-ptr` student data clearing the depth criteria (steel `wiki/decisions.md` 2026-07-22) | Highest-leverage builds; August start means U2 (quadratics/complex) hits first, U8/U10 are spring |
 | Algebra III (EdgeEx) — content gaps | Difference quotient (U3), regression/logistic models (U7), inverses with domain restriction (U6) uncovered | ☐ | AIII is review-heavy; existing ~ cells may carry most of the year |
 | Math Essentials — note | Covered (11 ✔ from the algebra suite + bind-the-parts) but geometry-remediation's home depends on COURSE-5/6 naming | — | — |
 
