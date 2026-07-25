@@ -196,13 +196,19 @@ function Plane({ width = 440, height = 320, xMin = -8, xMax = 8, yMin = -10, yMa
   const iw = width - pad.l - pad.r, ih = height - pad.t - pad.b;
   const sx = (x) => pad.l + ((x - xMin) / (xMax - xMin)) * iw;
   const sy = (y) => pad.t + ih - ((Math.max(yMin, Math.min(yMax, y)) - yMin) / (yMax - yMin)) * ih;
+  // QuadraticsPTR clamped out-of-range y because its window never reached the
+  // ceiling. Here it does, and a clamped parabola draws a flat line along the
+  // top edge that reads as a bug. Both families are convex, so the in-range
+  // sample run is contiguous — dropping the rest truncates cleanly.
+  const inRange = (y) => Number.isFinite(y) && y >= yMin && y <= yMax;
   const xticks = []; for (let t = Math.ceil(xMin); t <= xMax; t++) if (t % 2 === 0) xticks.push(t);
   const yticks = []; for (let t = Math.ceil(yMin); t <= yMax; t++) if (t % 2 === 0) yticks.push(t);
   const buildPath = (fn, samples = 120) => {
     const pts = [];
     for (let i = 0; i <= samples; i++) {
       const x = xMin + (i / samples) * (xMax - xMin);
-      pts.push(`${sx(x).toFixed(2)},${sy(fn(x)).toFixed(2)}`);
+      const y = fn(x);
+      if (inRange(y)) pts.push(`${sx(x).toFixed(2)},${sy(y).toFixed(2)}`);
     }
     return pts.join(" ");
   };
