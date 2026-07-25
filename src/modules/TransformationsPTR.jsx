@@ -297,6 +297,14 @@ function ModuleTransformationsPTR() {
   const [idx, setIdx] = useState(0);
   const [rounds, setRounds] = useState(() => ROUNDS.map(blankRound));
 
+  // PRODUCER — read the target's parameters off the graph
+  const [pa, setPa] = useState("");
+  const [ph, setPh] = useState("");
+  const [pk, setPk] = useState("");
+  const [attempts, setAttempts] = useState(0);
+  const [matched, setMatched] = useState(false);
+  const [stuck, setStuck] = useState(false);
+
   const { emit } = useTelemetry();
 
   const round = ROUNDS[idx];
@@ -333,6 +341,31 @@ function ModuleTransformationsPTR() {
   const startProducer = () => {
     setPhase("producer");
     emit({ roundId: PRODUCER.roundId, guideState: "producer", action: "round_enter" });
+  };
+
+  // Exact parameter equality, not curve sampling — the standard is about
+  // READING a, h, k, so a 0.5-off answer is a miss and that is correct.
+  const aN = parseFloat(pa), hN = parseFloat(ph), kN = parseFloat(pk);
+  const pNumsOk = !isNaN(aN) && !isNaN(hN) && !isNaN(kN);
+  const producerOk = aN === PRODUCER.a && hN === PRODUCER.h && kN === PRODUCER.k;
+
+  const checkProducer = () => {
+    if (!pNumsOk) return;
+    const ok = producerOk;
+    setAttempts((n) => n + 1);
+    setMatched(ok);
+    emit({
+      roundId: PRODUCER.roundId,
+      guideState: "producer",
+      beatId: "producer",
+      action: "check",
+      result: ok ? "match" : "miss",
+    });
+  };
+
+  const finishRounds = () => {
+    emit({ roundId: PRODUCER.roundId, guideState: "producer", action: "complete" });
+    setPhase("recap");
   };
 
   const choiceLabel = (r, key) => (r.choices.find(([k]) => k === key) || [, ""])[1];
@@ -464,6 +497,74 @@ function ModuleTransformationsPTR() {
           )}
         </>
       )}
+
+      {/* ---------------- PRODUCER — hit the target by reading its parameters ---------------- */}
+      {phase === "producer" && (() => {
+        const base = FAMILIES[PRODUCER.family];
+        return (
+          <>
+            <StageTag>Build it</StageTag>
+            <H>Match the violet curve</H>
+            <P>Same base function — <b style={{ color: C.sub }}>{base.label}</b>, dashed. The
+              {" "}<b style={{ color: C.violet }}>violet</b> curve is some <b>a·f(x + h) + k</b> of it. Read the
+              transformation off the graph and enter the three parameters. Your attempt draws in
+              {" "}<b style={{ color: C.ember }}>ember</b> as soon as all three are numbers.</P>
+
+            <Plane xLabel="x" yLabel="y"
+              curves={[
+                { key: "ghost", f: base.f, color: C.sub, width: 2, dash: "5 4" },
+                { key: "target", f: transform(base.f, PRODUCER.a, PRODUCER.h, PRODUCER.k), color: C.violet, width: 2.8 },
+                ...(pNumsOk
+                  ? [{ key: "attempt", f: transform(base.f, aN, hN, kN), color: C.ember, width: 2.4, animate: true }]
+                  : []),
+              ]} />
+
+            <div style={{ display: "flex", alignItems: "flex-end", flexWrap: "wrap", margin: "10px 0 2px" }}>
+              <NumField label="a" value={pa} onChange={setPa} placeholder="1" />
+              <NumField label="h" value={ph} onChange={setPh} placeholder="0" />
+              <NumField label="k" value={pk} onChange={setPk} placeholder="0" />
+            </div>
+
+            {pNumsOk && (
+              <div style={{ background: C.bg, border: `1px solid ${C.line}`, borderRadius: 10,
+                padding: "11px 14px", margin: "8px 0 4px", fontFamily: "monospace", fontSize: 15, color: C.ink }}>
+                your curve: <b style={{ color: C.ember }}>{equationText(aN, hN, kN)}</b>
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
+              <Btn onClick={checkProducer} disabled={!pNumsOk}>Check my parameters</Btn>
+              {!pNumsOk && <span style={{ fontSize: 13, color: C.sub }}>Fill all three.</span>}
+            </div>
+
+            {attempts > 0 && matched && (
+              <>
+                <Coach tone="good">Exactly it — <b>{equationText(PRODUCER.a, PRODUCER.h, PRODUCER.k)}</b>. You read a
+                  reflection, a horizontal shift, and a vertical shift off one picture, and the sign inside the
+                  parentheses didn't trick you this time.</Coach>
+                <Btn onClick={finishRounds}>See what you built →</Btn>
+              </>
+            )}
+
+            {attempts > 0 && !matched && (
+              <>
+                <Coach tone="redirect">Not yet — your ember curve isn't sitting on the violet one. Work one parameter
+                  at a time: does it open the same way as the dashed original (that's <b>a</b>), where is the corner
+                  side to side (<b>h</b>, and remember round 2), and how far up or down (<b>k</b>)?</Coach>
+                {/* no-wall principle: unlimited retries, and a way past after a miss */}
+                <Btn kind="ghost" onClick={() => setStuck(true)}>I'm stuck — move on anyway</Btn>
+                {stuck && (
+                  <div style={{ marginTop: 12 }}>
+                    <Coach tone="neutral">The target was <b>{equationText(PRODUCER.a, PRODUCER.h, PRODUCER.k)}</b>.
+                      Your last attempt is saved for your teacher exactly as you entered it.</Coach>
+                    <Btn onClick={finishRounds}>See what you built →</Btn>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        );
+      })()}
     </section>
   );
 }
