@@ -15,6 +15,7 @@ export const MODULES = [
   { id: "linear-exponential-ptr", title: "Linear vs Exponential PTR", load: () => import("./modules/LinearExponentialPTR.jsx") },
   { id: "geometry-coordinate-ptr", title: "Geometry Coordinate PTR", load: () => import("./modules/GeometryCoordinatePTR.jsx") },
   { id: "predict-test-reconcile", title: "Predict-Test-Reconcile", load: () => import("./modules/PredictTestReconcile.jsx") },
+  { id: "transformations-ptr", title: "Function Transformations PTR", load: () => import("./modules/TransformationsPTR.jsx") },
   { id: "bind-the-parts", title: "Bind the Parts", load: () => import("./modules/BindTheParts.jsx") },
   { id: "assume-fit-reflect", title: "Assume-Fit-Reflect", load: () => import("./modules/AssumeFitReflect.jsx") },
   { id: "algebra-remediation", title: "Algebra Remediation (suite)", load: () => import("./modules/AlgebraRemediation.jsx") },
