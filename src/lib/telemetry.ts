@@ -46,6 +46,10 @@ export interface TelemetrySink {
   write(event: LabEvent): void;
   flush(): LabEvent[]; // returns and clears buffered events
   exportCsv(): string; // teacher-triggered export
+  // Will these events survive the tab closing? False means the sink is running
+  // on the in-memory fallback and the session will vanish with no error
+  // anywhere. Callers must surface this; see App.jsx StorageHealth.
+  persistent: boolean;
 }
 
 export function createEmitter(
@@ -112,6 +116,21 @@ function memoryFallbackStore(): StringStore {
   };
 }
 
+// A store can exist and still refuse writes — blocked site data, exhausted
+// quota, a wiped school profile. Reading a probe back is the only honest check,
+// because it is the same operation write() performs.
+function roundTrips(s: StringStore, key: string): boolean {
+  const probe = `${key}:probe`;
+  try {
+    s.setItem(probe, "1");
+    const ok = s.getItem(probe) === "1";
+    s.removeItem(probe);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 export function createLocalStorageSink(
   store: StringStore | null | undefined = defaultStore(),
   key: string = STORAGE_KEY
@@ -119,6 +138,7 @@ export function createLocalStorageSink(
   // No usable store → buffer in memory: events survive the mount, not a
   // refresh. Degraded telemetry beats a blocked student (spec §4.4 spirit).
   const s: StringStore = store ?? memoryFallbackStore();
+  const persistent = store != null && roundTrips(s, key);
   const read = (): LabEvent[] => {
     try {
       const raw = s.getItem(key);
@@ -129,6 +149,7 @@ export function createLocalStorageSink(
     }
   };
   return {
+    persistent,
     write(event) {
       try {
         const events = read();

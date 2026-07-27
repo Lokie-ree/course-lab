@@ -38,6 +38,37 @@ function readCachedCode() {
   }
 }
 
+// The sink degrades to an in-memory buffer when Chrome blocks site data, and a
+// degraded sink is indistinguishable from a working one at every call site —
+// which is exactly how a student completes the whole module, hands in their
+// answers, and leaves behind no events at all, with no error anywhere. School
+// Chromebooks are where that happens. Surfacing it here is what lets a
+// collection protocol be four sentences instead of a page of contingencies.
+function StorageHealth() {
+  if (sink.persistent) {
+    return (
+      <p style={{ fontSize: "13px", color: "#4a7c59", margin: "8px 0" }}>
+        Saving your work ✓
+      </p>
+    );
+  }
+  return (
+    <p
+      role="alert"
+      style={{
+        fontSize: "14px",
+        color: "#a3261f",
+        border: "1px solid #a3261f",
+        borderRadius: "4px",
+        padding: "8px 10px",
+        margin: "8px 0",
+      }}
+    >
+      ⚠ This Chromebook isn’t saving your work. Tell Mr. L <strong>before</strong> you close this tab.
+    </p>
+  );
+}
+
 function StartGate({ module: mod, onStarted, onBack }) {
   const cached = readCachedCode();
   const [input, setInput] = useState(cached);
@@ -82,6 +113,7 @@ function StartGate({ module: mod, onStarted, onBack }) {
     <main style={{ maxWidth: "480px", margin: "60px auto", fontFamily: "system-ui, sans-serif", padding: "0 16px" }}>
       <button onClick={onBack} style={{ marginBottom: "16px" }}>← All modules</button>
       <h1 style={{ fontSize: "22px" }}>{mod.title}</h1>
+      <StorageHealth />
       <label style={{ display: "block", margin: "16px 0 8px" }}>
         Enter your student code to start:
         <input
@@ -106,7 +138,11 @@ function exportTelemetryCsv() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `course-lab-events-${new Date().toISOString().slice(0, 10)}.csv`;
+  // Student code in the filename so a collected folder answers "who handed in?"
+  // without opening 40 files. Falls back when a teacher exports off the picker
+  // without having started a module on this device.
+  const who = readCachedCode() || "device";
+  a.download = `course-lab-events-${who}-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -149,6 +185,7 @@ export default function App() {
   return (
     <main style={{ maxWidth: "640px", margin: "40px auto", fontFamily: "system-ui, sans-serif" }}>
       <h1>course-lab</h1>
+      <StorageHealth />
       <p>Module library — pick one:</p>
       <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: "8px" }}>
         {MODULES.map((m) => (

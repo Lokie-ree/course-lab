@@ -135,6 +135,32 @@ describe("hardening — telemetry never breaks pedagogy", () => {
     expect(sink.flush()).toHaveLength(1);
   });
 
+  it("reports persistent when the store round-trips a probe, and leaves no probe behind", () => {
+    const store = memoryStore();
+    expect(createLocalStorageSink(store).persistent).toBe(true);
+    expect([...store.map.keys()]).toEqual([]);
+  });
+
+  it("reports not-persistent with no store at all", () => {
+    expect(createLocalStorageSink(null).persistent).toBe(false);
+  });
+
+  it("reports not-persistent when the store exists but refuses writes", () => {
+    // The case the flag exists for: Chrome hands back a localStorage object on
+    // a wiped school profile and throws on use. Presence is not persistence.
+    const store = memoryStore();
+    store.setItem = () => {
+      throw new Error("SecurityError");
+    };
+    expect(createLocalStorageSink(store).persistent).toBe(false);
+  });
+
+  it("reports not-persistent when the store silently drops writes", () => {
+    const store = memoryStore();
+    store.setItem = () => {}; // no throw, no write — the quietest failure
+    expect(createLocalStorageSink(store).persistent).toBe(false);
+  });
+
   it("flush returns the events even when the store rejects the clear", () => {
     const store = memoryStore();
     createEmitter(createLocalStorageSink(store), context)(partial);
