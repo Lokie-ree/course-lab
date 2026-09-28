@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useContext, createContext 
 import { useTelemetry } from "../lib/TelemetryContext";
 
 // Bump on pedagogically meaningful change only (spec §4.6); roundIds are append-only.
-export const MODULE_VERSION = "1.0.0";
+export const MODULE_VERSION = "1.1.0";
 
 // Fixed scenario id (spec §4.2) — the single bet this module runs.
 const ROUND_ID = "quad-x2-4x+5";
@@ -464,16 +464,16 @@ function ModuleQuadraticsPTR() {
           <StageTag>Reconcile</StageTag>
           <P style={{ marginBottom: 2 }}>
             {predictionWasRight
-              ? "You were right — so nail down the rule. How does the SIGN of the discriminant tell you the number of real solutions, before you solve anything?"
-              : "You picked \"" + pickLabel + ",\" but the discriminant came out −4. What did you expect, and what does a negative discriminant actually mean?"}
+              ? "You were right. Now look at the graph: what about this parabola keeps it off the axis?"
+              : "You picked \"" + pickLabel + ",\" but the parabola never touches the axis. What did you expect, and what does the graph show instead?"}
           </P>
           <Field
-            label={predictionWasRight ? "Say how the discriminant's sign sets the count — in your own words" : "I thought ___, but the discriminant showed ___ because ___"}
+            label={predictionWasRight ? "Why does this parabola never reach the axis? In your own words" : "I thought ___, but the graph showed ___ because ___"}
             value={surprise}
             onChange={setSurprise}
             placeholder={predictionWasRight
-              ? "A negative discriminant means no real solutions because…"
-              : "I thought it would cross twice because…, but a negative discriminant means…"}
+              ? "It never reaches the axis because…"
+              : "I thought it would cross because…, but the graph showed…"}
             rows={3}
           />
           {surprise.trim().length >= 12 ? (
@@ -557,7 +557,7 @@ function ModuleQuadraticsPTR() {
           <div style={{ background: C.bg, border: `1px solid ${C.line}`, borderRadius: 12, padding: "18px 20px", marginTop: 12 }}>
             <RecapRow label="Your locked-in call (before any graph)" text={`${pickLabel} — "${prediction}"`} />
             <RecapRow label="What the discriminant actually was" text={`b² − 4ac = −4 (negative) ⇒ no real solutions; the parabola never touches the axis.`} />
-            <RecapRow label={predictionWasRight ? "How the sign sets the count (your words)" : "What surprised you, and why (your words)"} text={surprise} />
+            <RecapRow label={predictionWasRight ? "Why it never reaches the axis (your words)" : "What surprised you, and why (your words)"} text={surprise} />
             <RecapRow label="The quadratic you tested" text={pNumsOk ? `${paN}x² + ${pbN}x + ${pcN}, discriminant ${pDisc}` : ""} />
             <RecapRow label="Real-solution count you predicted" text={pCount ? countWord(pCount) : ""} />
             <RecapRow label="Your sign ⇒ count reasoning" text={pWhy} />
