@@ -219,6 +219,7 @@ function ModuleCoordinate({ emit = () => {} }) {
     setSubmitted(true);
     emit({ guideState: "judge", action: "check", result: caughtIncomplete ? "match" : "miss" }); };
   const startProducer = () => {
+    if (stage !== "judge") return;
     setStage("producer");
     emit({ guideState: "judge", action: "next" });
   };
@@ -315,7 +316,7 @@ OT ∥ PS, so it's a parallelogram.`}
           <Coach tone="good">That's the catch. One pair parallel only gets you a <b>trapezoid</b>. A parallelogram
             needs <b>both</b> pairs of opposite sides parallel — they never checked OP and TS. On the LEAP, "both
             pairs, and here's why" is what earns the reasoning points, not just the computation point.</Coach>
-          <Btn onClick={startProducer}>Now prove it yourself →</Btn>
+          {stage === "judge" && <Btn onClick={startProducer}>Now prove it yourself →</Btn>}
         </>
       ) : (
         <>
@@ -323,8 +324,8 @@ OT ∥ PS, so it's a parallelogram.`}
             pair parallel too. Hit "highlight the sides they didn't check" and look at OP and TS. A parallelogram
             needs <b>both</b> pairs. What's still unproven?</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={startProducer}>Got it — prove it yourself →</Btn>
-            <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
+            {stage === "judge" && <Btn onClick={startProducer}>Got it — prove it yourself →</Btn>}
+            {stage === "judge" && <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>}
           </div>
         </>
       )}
@@ -426,6 +427,7 @@ function ModuleTrig({ emit = () => {} }) {
     setSubmitted(true);
     emit({ guideState: "judge", action: "check", result: caughtRatio ? "match" : "miss" }); };
   const startProducer = () => {
+    if (stage !== "judge") return;
     setStage("producer");
     emit({ guideState: "judge", action: "next" });
   };
@@ -493,7 +495,7 @@ function ModuleTrig({ emit = () => {} }) {
           <Coach tone="good">Exactly. 3 and 4 are the two <b>legs</b> — opposite and adjacent. Sine needs the
             hypotenuse, which wasn't given. The ratio that relates the two legs is <b>tan θ = 3/4</b>. Picking the
             ratio is the whole skill here; the test won't tell you which one to use.</Coach>
-          <Btn onClick={startProducer}>Now solve one with no diagram →</Btn>
+          {stage === "judge" && <Btn onClick={startProducer}>Now solve one with no diagram →</Btn>}
         </>
       ) : (
         <>
@@ -501,8 +503,8 @@ function ModuleTrig({ emit = () => {} }) {
             (adjacent). Is 4 the hypotenuse? It isn't — the hypotenuse is the slanted side, and it wasn't given.
             So which ratio uses the <b>two legs</b>?</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={startProducer}>Got it — solve one →</Btn>
-            <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
+            {stage === "judge" && <Btn onClick={startProducer}>Got it — solve one →</Btn>}
+            {stage === "judge" && <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>}
           </div>
         </>
       )}
@@ -636,6 +638,7 @@ function FullModule({ config, emit = () => {} }) {
     setSubmitted(true);
     emit({ guideState: "judge", action: "check", result: caught ? "match" : "miss" }); };
   const startProducer = () => {
+    if (stage !== "judge") return;
     setStage("producer");
     emit({ guideState: "judge", action: "next" });
   };
@@ -665,14 +668,14 @@ function FullModule({ config, emit = () => {} }) {
       ) : caught ? (
         <>
           <Coach tone="good">{config.judge.goodCoach}</Coach>
-          <Btn onClick={startProducer}>Now build one yourself →</Btn>
+          {stage === "judge" && <Btn onClick={startProducer}>Now build one yourself →</Btn>}
         </>
       ) : (
         <>
           <Coach tone="redirect">{config.judge.redirectCoach}</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={startProducer}>Got it — build one yourself →</Btn>
-            <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
+            {stage === "judge" && <Btn onClick={startProducer}>Got it — build one yourself →</Btn>}
+            {stage === "judge" && <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>}
           </div>
         </>
       )}
@@ -792,6 +795,7 @@ function ModuleSimilarity({ emit = () => {} }) {
     setSubmitted(true);
     emit({ guideState: "judge", action: "check", result: caught ? "match" : "miss" }); };
   const startProducer = () => {
+    if (stage !== "judge") return;
     setStage("producer");
     emit({ guideState: "judge", action: "next" });
   };
@@ -858,14 +862,14 @@ function ModuleSimilarity({ emit = () => {} }) {
       ) : caught ? (
         <>
           <Coach tone="good">Exactly — area scales by the factor <b>squared</b>: at k = {k} that's <b>{k * k}</b> unit squares, not {k}. Lengths scale by k, areas by k², volumes by k³. That relationship is what the whole similarity cluster is built on.</Coach>
-          <Btn onClick={startProducer}>Now scale one yourself →</Btn>
+          {stage === "judge" && <Btn onClick={startProducer}>Now scale one yourself →</Btn>}
         </>
       ) : (
         <>
           <Coach tone="redirect">Good start — and here's the piece I'd add: drag k to 4 and literally count the little squares filling the big one. It's a grid — {4}×{4} = 16, not 4. Area scales by the factor <i>squared</i>. So what's the real area multiplier?</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={startProducer}>Got it — scale one yourself →</Btn>
-            <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
+            {stage === "judge" && <Btn onClick={startProducer}>Got it — scale one yourself →</Btn>}
+            {stage === "judge" && <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>}
           </div>
         </>
       )}
@@ -949,6 +953,7 @@ function ModuleCircles({ emit = () => {} }) {
     setSubmitted(true);
     emit({ guideState: "judge", action: "check", result: caught ? "match" : "miss" }); };
   const startProducer = () => {
+    if (stage !== "judge") return;
     setStage("producer");
     emit({ guideState: "judge", action: "next" });
   };
@@ -1029,14 +1034,14 @@ function ModuleCircles({ emit = () => {} }) {
       ) : caught ? (
         <>
           <Coach tone="good">Right — they're <b>not equal</b>. No matter where you drag the vertex, the inscribed angle stays <b>{inscribed}°</b> — exactly <b>half</b> the {centralMeasure}° central angle. "Same arc" sets a fixed 2:1 relationship, and the inscribed angle being constant on the arc is the inscribed-angle theorem itself.</Coach>
-          <Btn onClick={startProducer}>Now use the relationship →</Btn>
+          {stage === "judge" && <Btn onClick={startProducer}>Now use the relationship →</Btn>}
         </>
       ) : (
         <>
           <Coach tone="redirect">Good start — and here's the piece I'd add: drag the vertex all the way around. Notice the inscribed angle never changes and is always <i>smaller</i> than the central. It sits at exactly <b>half</b>. Which one is bigger, and what's the fixed ratio?</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={startProducer}>Got it — use the relationship →</Btn>
-            <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
+            {stage === "judge" && <Btn onClick={startProducer}>Got it — use the relationship →</Btn>}
+            {stage === "judge" && <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>}
           </div>
         </>
       )}

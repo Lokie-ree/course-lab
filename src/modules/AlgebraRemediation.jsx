@@ -263,6 +263,7 @@ function ModuleFunctions({ emit = () => {} }) {
     setSubmitted(true);
     emit({ guideState: "judge", action: "check", result: caughtCrossing ? "match" : "miss" }); };
   const startProducer = () => {
+    if (stage !== "judge") return;
     setStage("producer");
     emit({ guideState: "judge", action: "next" });
   };
@@ -329,7 +330,7 @@ function ModuleFunctions({ emit = () => {} }) {
           <Coach tone="good">That's the read. Riley starts behind, but a bigger weekly rate means the lines
             cross — around week 4 Riley pulls ahead and stays there. You read the <b>rate</b>, not just the
             starting point. That's exactly the move the test is checking.</Coach>
-          <Btn onClick={startProducer}>Now build one yourself →</Btn>
+          {stage === "judge" && <Btn onClick={startProducer}>Now build one yourself →</Btn>}
         </>
       ) : (
         <>
@@ -337,8 +338,8 @@ function ModuleFunctions({ emit = () => {} }) {
             higher at week 6. The starting point and the growth rate aren't the same thing. Riley's steeper rate
             lets the line catch up and cross. Read what the slope is doing over time.</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={startProducer}>Got it — build one yourself →</Btn>
-            <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
+            {stage === "judge" && <Btn onClick={startProducer}>Got it — build one yourself →</Btn>}
+            {stage === "judge" && <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>}
           </div>
         </>
       )}
@@ -453,6 +454,7 @@ function ModuleSystems({ emit = () => {} }) {
     setSubmitted(true);
     emit({ guideState: "judge", action: "check", result: caughtPoint ? "match" : "miss" }); };
   const startProducer = () => {
+    if (stage !== "judge") return;
     setStage("producer");
     emit({ guideState: "judge", action: "next" });
   };
@@ -523,7 +525,7 @@ x = 2
           <Coach tone="good">Exactly. The solution to a system is the <b>point</b> where the lines meet — it needs
             both coordinates, <b>(2, 5)</b>. Stopping at <code>x = 2</code> is half the answer. On the test, naming
             the full point is the difference between credit and partial credit.</Coach>
-          <Btn onClick={startProducer}>Now build one yourself →</Btn>
+          {stage === "judge" && <Btn onClick={startProducer}>Now build one yourself →</Btn>}
         </>
       ) : (
         <>
@@ -531,8 +533,8 @@ x = 2
             cross. The solution isn't just <code>x = 2</code>; it's the <b>point</b> the two lines share, which has a
             y-value too. What's the full ordered pair?</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={startProducer}>Got it — build one yourself →</Btn>
-            <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
+            {stage === "judge" && <Btn onClick={startProducer}>Got it — build one yourself →</Btn>}
+            {stage === "judge" && <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>}
           </div>
         </>
       )}
@@ -661,6 +663,7 @@ function FullModule({ config, emit = () => {} }) {
     emit({ guideState: "judge", action: "check", result: caught ? "match" : "miss" });
   };
   const startProducer = () => {
+    if (stage !== "judge") return;
     setStage("producer");
     emit({ guideState: "judge", action: "next" });
   };
@@ -691,14 +694,14 @@ function FullModule({ config, emit = () => {} }) {
       ) : caught ? (
         <>
           <Coach tone="good">{config.judge.goodCoach}</Coach>
-          <Btn onClick={startProducer}>Now build one yourself →</Btn>
+          {stage === "judge" && <Btn onClick={startProducer}>Now build one yourself →</Btn>}
         </>
       ) : (
         <>
           <Coach tone="redirect">{config.judge.redirectCoach}</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={startProducer}>Got it — build one yourself →</Btn>
-            <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
+            {stage === "judge" && <Btn onClick={startProducer}>Got it — build one yourself →</Btn>}
+            {stage === "judge" && <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>}
           </div>
         </>
       )}
@@ -1048,6 +1051,7 @@ function ModuleBuildingFunctions({ emit = () => {} }) {
     setSubmitted(true);
     emit({ guideState: "judge", action: "check", result: caught ? "match" : "miss" }); };
   const startProducer = () => {
+    if (stage !== "judge") return;
     setStage("producer");
     emit({ guideState: "judge", action: "next" });
   };
@@ -1103,14 +1107,14 @@ function ModuleBuildingFunctions({ emit = () => {} }) {
       ) : caught ? (
         <>
           <Coach tone="good">Exactly — <b>f(x)+k</b> moves the graph <b>up</b> (the k is outside, it changes the output); <b>f(x+k)</b> moves it <b>left</b> (the k is inside, it changes the input). Outside vs inside the function is the whole distinction.</Coach>
-          <Btn onClick={startProducer}>Now build one yourself →</Btn>
+          {stage === "judge" && <Btn onClick={startProducer}>Now build one yourself →</Btn>}
         </>
       ) : (
         <>
           <Coach tone="redirect">Good start — and here's the piece I'd add: set k back to 0, then drag up slowly. The blue curve (k outside) slides <b>up</b>; the coral curve (k inside) slides <b>left</b>. A change <i>outside</i> f moves output (vertical); <i>inside</i> moves input (horizontal). Same k, different direction.</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={startProducer}>Got it — build one yourself →</Btn>
-            <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
+            {stage === "judge" && <Btn onClick={startProducer}>Got it — build one yourself →</Btn>}
+            {stage === "judge" && <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>}
           </div>
         </>
       )}
@@ -1196,6 +1200,7 @@ function ModuleLinExpModels({ emit = () => {} }) {
     setSubmitted(true);
     emit({ guideState: "judge", action: "check", result: caught ? "match" : "miss" }); };
   const startProducer = () => {
+    if (stage !== "judge") return;
     setStage("producer");
     emit({ guideState: "judge", action: "next" });
   };
@@ -1261,14 +1266,14 @@ function ModuleLinExpModels({ emit = () => {} }) {
       ) : caught ? (
         <>
           <Coach tone="good">Right — Plan A <b>adds 50 every year</b> (constant difference → <b>linear</b>, a straight line); Plan B <b>multiplies by 1.5</b> (constant ratio → <b>exponential</b>, a curve that runs away). They start close, then the gap explodes. Add-vs-multiply is how you pick the model.</Coach>
-          <Btn onClick={startProducer}>Now build one yourself →</Btn>
+          {stage === "judge" && <Btn onClick={startProducer}>Now build one yourself →</Btn>}
         </>
       ) : (
         <>
           <Coach tone="redirect">Good start — and here's the piece I'd add: drag the years all the way out and watch the gap. A straight line (adding) can't keep up with a curve (multiplying). Plan A goes +50, +50; Plan B goes ×1.5, ×1.5. One is linear, one is exponential — what's the difference?</Coach>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn onClick={startProducer}>Got it — build one yourself →</Btn>
-            <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>
+            {stage === "judge" && <Btn onClick={startProducer}>Got it — build one yourself →</Btn>}
+            {stage === "judge" && <Btn kind="ghost" onClick={() => setSubmitted(false)}>Look again</Btn>}
           </div>
         </>
       )}

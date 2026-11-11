@@ -277,6 +277,7 @@ function ModuleSystemsPTR() {
   };
  
   const startProducer = () => {
+    if (phase !== "revealed") return;
     setPhase("producer");
     emit({ roundId: ROUND_ID, guideState: "revealed", action: "next" });
   };
@@ -449,7 +450,7 @@ function ModuleSystemsPTR() {
             <>
               <Coach tone="neutral">Saved for your teacher in your own words — they'll read your reasoning, not a
                 score. Now build one from scratch.</Coach>
-              <Btn onClick={startProducer}>Build one yourself →</Btn>
+              {phase === "revealed" && <Btn onClick={startProducer}>Build one yourself →</Btn>}
             </>
           ) : (
             <div style={{ fontSize: 13, color: C.sub, marginTop: 2 }}>
