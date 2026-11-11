@@ -313,6 +313,7 @@ function ModuleKeyFeaturesPTR() {
   };
  
   const startProducer = () => {
+    if (phase !== "revealed") return;
     setPhase("producer");
     emit({ roundId: ROUND_ID, guideState: "revealed", action: "next" });
   };
@@ -507,7 +508,7 @@ function ModuleKeyFeaturesPTR() {
             <>
               <Coach tone="neutral">Saved for your teacher in your own words — they'll read your reasoning, not a
                 score. Now use the distinction to pick the right graph.</Coach>
-              <Btn onClick={startProducer}>Match the description to a graph →</Btn>
+              {phase === "revealed" && <Btn onClick={startProducer}>Match the description to a graph →</Btn>}
             </>
           ) : (
             <div style={{ fontSize: 13, color: C.sub, marginTop: 2 }}>

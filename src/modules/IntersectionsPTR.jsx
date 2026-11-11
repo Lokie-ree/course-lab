@@ -308,6 +308,7 @@ function ModuleIntersectionsPTR() {
   };
  
   const startProducer = () => {
+    if (phase !== "revealed") return;
     setPhase("producer");
     emit({ roundId: ROUND_ID, guideState: "revealed", action: "next" });
   };
@@ -491,7 +492,7 @@ function ModuleIntersectionsPTR() {
             <>
               <Coach tone="neutral">Saved for your teacher in your own words — they'll read your reasoning, not a
                 score. Now pin down what "solution" actually means here.</Coach>
-              <Btn onClick={startProducer}>Find a solution yourself →</Btn>
+              {phase === "revealed" && <Btn onClick={startProducer}>Find a solution yourself →</Btn>}
             </>
           ) : (
             <div style={{ fontSize: 13, color: C.sub, marginTop: 2 }}>

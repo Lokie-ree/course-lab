@@ -306,6 +306,7 @@ function ModuleEquivFormsPTR() {
   };
 
   const startProducer = () => {
+    if (phase !== "revealed") return;
     setPhase("producer");
     emit({ roundId: ROUND_ID, guideState: "revealed", action: "next" });
   };
@@ -500,7 +501,7 @@ function ModuleEquivFormsPTR() {
             <>
               <Coach tone="neutral">Saved for your teacher in your own words — they'll read your reasoning, not a
                 score. Now produce an equivalent form yourself — this time, factor one to reveal its zeros.</Coach>
-              <Btn onClick={startProducer}>Reveal some zeros →</Btn>
+              {phase === "revealed" && <Btn onClick={startProducer}>Reveal some zeros →</Btn>}
             </>
           ) : (
             <div style={{ fontSize: 13, color: C.sub, marginTop: 2 }}>
